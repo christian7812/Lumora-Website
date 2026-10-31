@@ -10,16 +10,19 @@
     "start": "node dist/src/index.js",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
+    "db:seed-products": "tsx src/db/seedProducts.ts",
     "db:demo": "tsx src/crud-demo.ts"
   },
   "dependencies": {
+    "@arcjet/node": "^1.15.0",
     "@neondatabase/serverless": "^1.2.0",
     "better-auth": "^1.7.13",
     "cors": "^2.8.6",
     "dotenv": "^18.0.9",
     "drizzle-orm": "^0.45.4",
     "express": "^5.3.0",
-    "pg": "^8.23.1"
+    "pg": "^8.23.1",
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@types/cors": "^2.8.19",

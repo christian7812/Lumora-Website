@@ -1,5 +1,8 @@
-import { pgTable,serial,text,timestamp,boolean,index,} from "drizzle-orm/pg-core";
+import { boolean, check, index, integer, numeric, pgTable, serial, text, timestamp, uuid,} from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
+import { sql } from "drizzle-orm";
+
+
 
 // Demo users table (keep for testing CRUD operations)
 export const demoUsers = pgTable("demo_users", {
@@ -88,10 +91,102 @@ export const verification = pgTable(
   (table) => [index("verification_identifier_idx").on(table.identifier)],
 );
 
+export const categories = pgTable("categories", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  name: text("name").notNull().unique(),
+  description: text("description"),
+  isActive: boolean("is_active").notNull().default(true),
+});
+
+// Store catalog and customer orders
+export const products = pgTable(
+  "products",
+  {
+    id: text("id").primaryKey(),
+    name: text("name").notNull(),
+    categoryId: uuid("category_id")
+      .notNull()
+      .references(() => categories.id),
+    image: text("image").notNull(),
+    price: numeric("price", { precision: 10, scale: 2 }).notNull(),
+    oldPrice: numeric("old_price", { precision: 10, scale: 2 }),
+    stockQuantity: integer("stock_quantity").notNull().default(0),
+    isActive: boolean("is_active").notNull().default(true),
+  },
+  (table) => [
+    index("products_category_id_idx").on(table.categoryId),
+    check("products_stock_quantity_nonnegative", sql`${table.stockQuantity} >= 0`),
+    check("products_price_nonnegative", sql`${table.price} >= 0`),
+    check(
+      "products_old_price_nonnegative",
+      sql`${table.oldPrice} IS NULL OR ${table.oldPrice} >= 0`,
+    ),
+  ],
+);
+
+export const orders = pgTable("orders", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  userId: text("user_id").references(() => user.id, { onDelete: "set null" }),
+  fullName: text("full_name").notNull(),
+  email: text("email").notNull(),
+  phone: text("phone").notNull(),
+  address: text("address").notNull(),
+  city: text("city").notNull(),
+  region: text("region").notNull(),
+  paymentMethod: text("payment_method").notNull(),
+  subtotal: numeric("subtotal", { precision: 10, scale: 2 }).notNull(),
+  shipping: numeric("shipping", { precision: 10, scale: 2 }).notNull(),
+  total: numeric("total", { precision: 10, scale: 2 }).notNull(),
+  status: text("status").notNull().default("pending"),
+  paymentStatus: text("payment_status").notNull().default("unpaid"),
+  paymentReference: text("payment_reference"),
+  stockDeducted: boolean("stock_deducted").notNull().default(false),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("orders_user_id_created_at_idx").on(table.userId, table.createdAt),
+  check(
+    "orders_payment_status_valid",
+    sql`${table.paymentStatus} IN ('unpaid', 'paid', 'refunded')`,
+  ),
+]);
+
+export const orderItems = pgTable("order_items", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  orderId: uuid("order_id")
+    .notNull()
+    .references(() => orders.id, { onDelete: "cascade" }),
+  productId: text("product_id").notNull(),
+  productName: text("product_name").notNull(),
+  quantity: integer("quantity").notNull(),
+  price: numeric("price", { precision: 10, scale: 2 }).notNull(),
+});
+
+export const contactMessages = pgTable(
+  "contact_messages",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    name: text("name").notNull(),
+    email: text("email").notNull(),
+    subject: text("subject").notNull(),
+    message: text("message").notNull(),
+    status: text("status").notNull().default("new"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("contact_messages_status_created_at_idx").on(table.status, table.createdAt),
+    index("contact_messages_email_idx").on(table.email),
+    check(
+      "contact_messages_status_valid",
+      sql`${table.status} IN ('new', 'read', 'archived')`,
+    ),
+  ],
+);
+
 // Relations
 export const userRelations = relations(user, ({ many }) => ({
   sessions: many(session),
   accounts: many(account),
+  orders: many(orders),
 }));
 
 export const sessionRelations = relations(session, ({ one }) => ({
@@ -105,6 +200,32 @@ export const accountRelations = relations(account, ({ one }) => ({
   user: one(user, {
     fields: [account.userId],
     references: [user.id],
+  }),
+}));
+
+export const orderRelations = relations(orders, ({ many, one }) => ({
+  items: many(orderItems),
+  user: one(user, {
+    fields: [orders.userId],
+    references: [user.id],
+  }),
+}));
+
+export const orderItemRelations = relations(orderItems, ({ one }) => ({
+  order: one(orders, {
+    fields: [orderItems.orderId],
+    references: [orders.id],
+  }),
+}));
+
+export const categoryRelations = relations(categories, ({ many }) => ({
+  products: many(products),
+}));
+
+export const productRelations = relations(products, ({ one }) => ({
+  category: one(categories, {
+    fields: [products.categoryId],
+    references: [categories.id],
   }),
 }));
 
