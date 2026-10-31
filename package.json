@@ -1,0 +1,19 @@
+{
+  "name": "shopping-website",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "Admin",
+    "Server",
+    "Client/shopping-frontend"
+  ],
+  "scripts": {
+    "dev:admin": "npm run dev --workspace=Admin",
+    "dev:server": "npm run dev --workspace=shopping-website-server",
+    "dev:client": "npm run dev --workspace=shopping-frontend",
+    "build:admin": "npm run build --workspace=Admin",
+    "build:server": "npm run build --workspace=shopping-website-server",
+    "build:client": "npm run build --workspace=shopping-frontend",
+    "build": "npm run build:server && npm run build:admin && npm run build:client"
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "files": [],
+  "references": [
+    { "path": "./Admin" },
+    { "path": "./Client/shopping-frontend" },
+    { "path": "./Server" }
+  ]
+}
