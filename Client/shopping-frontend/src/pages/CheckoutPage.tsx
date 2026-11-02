@@ -125,6 +125,7 @@ export default function CheckoutPage() {
           body: JSON.stringify({
             orderId: result.orderId,
             email: form.email,
+            callbackUrl: `${window.location.origin}/order-success?orderId=${encodeURIComponent(result.orderId)}`,
           }),
         });
 

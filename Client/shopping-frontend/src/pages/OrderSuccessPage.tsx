@@ -1,27 +1,89 @@
-import { Link, useLocation } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Link, useLocation, useSearchParams } from "react-router-dom";
 import { Check, PackageCheck, ShieldCheck, Clock, Truck } from "lucide-react";
 import Navbar from "../components/layout/Navbar";
 import Footer from "../components/layout/Footer";
 
 interface OrderConfirmation {
-  orderId: string;
-  total: string;
+  orderId?: string;
+  total?: string | number;
   paymentMethod?: string;
   paymentReference?: string;
   paymentStatus?: "unpaid" | "paid" | "refunded";
 }
 
+interface PaymentVerification {
+  success?: boolean;
+  message?: string;
+  orderId?: string;
+  reference?: string;
+  paymentStatus?: "unpaid" | "paid" | "refunded";
+}
+
 export default function OrderSuccessPage() {
   const location = useLocation();
+  const [searchParams] = useSearchParams();
   const confirmation = location.state as OrderConfirmation | null;
+  const reference =
+    searchParams.get("reference") || searchParams.get("trxref");
+  const callbackOrderId = searchParams.get("orderId");
+  const [verifiedPayment, setVerifiedPayment] =
+    useState<PaymentVerification | null>(null);
+  const [isVerifyingPayment, setIsVerifyingPayment] = useState(Boolean(reference));
+  const [verificationError, setVerificationError] = useState("");
+
+  useEffect(() => {
+    if (!reference) return;
+
+    const controller = new AbortController();
+    const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:8000";
+
+    fetch(`${apiUrl}/api/payments/verify`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        reference,
+        ...(callbackOrderId ? { orderId: callbackOrderId } : {}),
+      }),
+      signal: controller.signal,
+    })
+      .then(async (response) => {
+        const result: PaymentVerification = await response
+          .json()
+          .catch(() => ({}));
+        if (!response.ok || !result.success || result.paymentStatus !== "paid") {
+          throw new Error(result.message || "Could not verify your payment.");
+        }
+        setVerifiedPayment(result);
+      })
+      .catch((error: unknown) => {
+        if (!controller.signal.aborted) {
+          setVerificationError(
+            error instanceof Error
+              ? error.message
+              : "Could not verify your payment.",
+          );
+        }
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setIsVerifyingPayment(false);
+      });
+
+    return () => controller.abort();
+  }, [callbackOrderId, reference]);
 
   const isPaid =
     confirmation?.paymentStatus === "paid" ||
-    confirmation?.paymentMethod === "paystack" ||
-    confirmation?.paymentMethod === "paystack (mobile_money)" ||
-    confirmation?.paymentMethod === "paystack (card)";
+    verifiedPayment?.paymentStatus === "paid";
 
-  const isCod = confirmation?.paymentMethod === "cash_on_delivery";
+  const isCod =
+    confirmation?.paymentMethod?.toLowerCase().replaceAll(" ", "_") ===
+    "cash_on_delivery";
+  const orderId =
+    verifiedPayment?.orderId || confirmation?.orderId || callbackOrderId;
+  const paymentReference =
+    verifiedPayment?.reference || confirmation?.paymentReference || reference;
+  const total = confirmation?.total;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -63,9 +125,21 @@ export default function OrderSuccessPage() {
             </p>
           </div>
         ) : (
-          <p className="mt-3 max-w-xl text-gray-600">
-            Your order has been received. We’ll prepare it for delivery and contact you with any updates.
-          </p>
+          <div className="mt-3 max-w-xl space-y-2">
+            {isVerifyingPayment && (
+              <p className="text-sm font-semibold text-gray-700">
+                Verifying your payment with Paystack…
+              </p>
+            )}
+            {verificationError && (
+              <p role="alert" className="text-sm font-semibold text-red-700">
+                {verificationError}
+              </p>
+            )}
+            <p className="text-gray-600">
+              Your order has been received. We’ll prepare it for delivery and contact you with any updates.
+            </p>
+          </div>
         )}
 
         {/* Quick Highlights Strip */}
@@ -90,7 +164,7 @@ export default function OrderSuccessPage() {
           </div>
         </div>
 
-        {confirmation?.orderId && (
+        {orderId && (
           <section
             aria-label="Order details"
             className="mt-6 w-full rounded-2xl border border-gray-200 bg-white p-6 text-left shadow-sm sm:p-8"
@@ -112,37 +186,41 @@ export default function OrderSuccessPage() {
               <div className="flex flex-wrap justify-between gap-2">
                 <dt className="text-gray-600">Order ID</dt>
                 <dd className="break-all font-mono font-semibold text-gray-900">
-                  {confirmation.orderId}
+                  {orderId}
                 </dd>
               </div>
 
-              {confirmation.paymentReference && (
+              {paymentReference && (
                 <div className="flex flex-wrap justify-between gap-2 border-t border-gray-100 pt-3">
                   <dt className="text-gray-600">Payment Reference</dt>
                   <dd className="break-all font-mono text-xs text-gray-700">
-                    {confirmation.paymentReference}
+                    {paymentReference}
                   </dd>
                 </div>
               )}
 
-              {confirmation.total && (
+              {total !== undefined && total !== "" && (
                 <div className="flex justify-between gap-2 border-t border-gray-100 pt-3">
-                  <dt className="text-gray-600">Amount Charged</dt>
+                  <dt className="text-gray-600">
+                    {isPaid ? "Amount Paid" : "Order Total"}
+                  </dt>
                   <dd className="font-bold text-gray-900">
-                    GH₵ {Number(confirmation.total).toFixed(2)}
+                    GH₵ {Number(total).toFixed(2)}
                   </dd>
                 </div>
               )}
 
-              {confirmation.paymentMethod && (
+              {(confirmation?.paymentMethod || verifiedPayment) && (
                 <div className="flex justify-between gap-2 border-t border-gray-100 pt-3">
                   <dt className="text-gray-600">Payment Channel</dt>
                   <dd className="font-medium capitalize text-gray-900">
-                    {confirmation.paymentMethod === "paystack" || confirmation.paymentMethod.startsWith("paystack")
+                    {verifiedPayment ||
+                    confirmation?.paymentMethod === "paystack" ||
+                    confirmation?.paymentMethod?.startsWith("paystack")
                       ? "Paystack (MoMo / Card)"
-                      : confirmation.paymentMethod === "cash_on_delivery"
+                      : confirmation?.paymentMethod === "cash_on_delivery"
                       ? "Cash on Delivery"
-                      : confirmation.paymentMethod.replace("_", " ")}
+                      : confirmation?.paymentMethod?.replace("_", " ")}
                   </dd>
                 </div>
               )}
@@ -150,7 +228,7 @@ export default function OrderSuccessPage() {
           </section>
         )}
 
-        {!confirmation?.orderId && (
+        {!orderId && (
           <p className="mt-6 rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-900">
             Order details aren’t available in this page session. If you just
             placed an order, it was submitted successfully.

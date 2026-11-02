@@ -159,14 +159,9 @@ export default function AccountOrdersPage() {
               </div>
 
               <div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <h1 className="text-xl font-black sm:text-2xl">
-                    {user?.name || "Lumora Customer"}
-                  </h1>
-                  <span className="rounded-full bg-yellow-400/20 px-2.5 py-0.5 text-[11px] font-black uppercase tracking-wider text-yellow-300">
-                    VIP Member
-                  </span>
-                </div>
+                <h1 className="text-xl font-black sm:text-2xl">
+                  {user?.name || "Lumora Customer"}
+                </h1>
                 <p className="mt-1 text-xs sm:text-sm text-gray-400">
                   {user?.email || "Signed in customer"}
                 </p>
@@ -304,7 +299,9 @@ export default function AccountOrdersPage() {
                         : "bg-amber-50 text-amber-700 border border-amber-200"
                     }`}
                   >
-                    Payment: {order.paymentStatus}
+                    Payment:{" "}
+                    {order.paymentStatus.charAt(0).toUpperCase() +
+                      order.paymentStatus.slice(1)}
                   </span>
                 </div>
               </div>
@@ -363,7 +360,9 @@ export default function AccountOrdersPage() {
                     </div>
                   )}
                   <div className="flex justify-between border-t border-gray-200 pt-2 text-base font-black text-gray-950">
-                    <span>Total Paid</span>
+                    <span>
+                      {order.paymentStatus === "paid" ? "Total Paid" : "Order Total"}
+                    </span>
                     <span className="text-yellow-700">
                       GH₵ {Number(order.total).toFixed(2)}
                     </span>
