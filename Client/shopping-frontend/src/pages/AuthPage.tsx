@@ -1,9 +1,16 @@
 import { useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import LoginForm from "../components/auth/LoginForm";
 import RegisterForm from "../components/auth/RegisterForm";
 
 export default function AuthPage() {
   const [isRegistering, setIsRegistering] = useState(false);
+  const [searchParams] = useSearchParams();
+  const requestedRedirect = searchParams.get("redirect");
+  const redirectTo =
+    requestedRedirect?.startsWith("/") && !requestedRedirect.startsWith("//")
+      ? requestedRedirect
+      : "/";
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-gray-100 px-4 py-10">
@@ -40,10 +47,12 @@ export default function AuthPage() {
             {isRegistering ? (
               <RegisterForm
                 onSwitchToLogin={() => setIsRegistering(false)}
+                redirectTo={redirectTo}
               />
             ) : (
               <LoginForm
                 onSwitchToRegister={() => setIsRegistering(true)}
+                redirectTo={redirectTo}
               />
             )}
           </div>

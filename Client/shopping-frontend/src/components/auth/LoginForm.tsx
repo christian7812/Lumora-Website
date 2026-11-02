@@ -1,14 +1,18 @@
 import { useState, type SubmitEvent } from "react";
+import { useNavigate } from "react-router-dom";
 import { authClient } from "../../lib/auth-client";
 import AuthInput from "../ui/AuthInput";
 
 interface LoginFormProps {
   onSwitchToRegister: () => void;
+  redirectTo: string;
 }
 
 export default function LoginForm({
   onSwitchToRegister,
+  redirectTo,
 }: LoginFormProps) {
+  const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -30,7 +34,7 @@ export default function LoginForm({
         return;
       }
 
-      window.location.href = "/";
+      navigate(redirectTo, { replace: true });
     } catch {
       setError("Something went wrong. Please try again.");
     } finally {

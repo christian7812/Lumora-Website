@@ -1,4 +1,5 @@
 import { useState, type SubmitEvent } from "react";
+import { useNavigate } from "react-router-dom";
 import { authClient } from "../../lib/auth-client";
 import AuthInput from "../ui/AuthInput";
 import { Sparkles, Check } from "lucide-react";
@@ -6,6 +7,7 @@ import "./RegisterForm.css";
 
 interface RegisterFormProps {
   onSwitchToLogin: () => void;
+  redirectTo: string;
 }
 
 const REGISTRATION_AVATARS = [
@@ -33,7 +35,9 @@ const REGISTRATION_AVATARS = [
 
 export default function RegisterForm({
   onSwitchToLogin,
+  redirectTo,
 }: RegisterFormProps) {
+  const navigate = useNavigate();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -71,7 +75,7 @@ export default function RegisterForm({
         return;
       }
 
-      window.location.href = "/";
+      navigate(redirectTo, { replace: true });
     } catch {
       setError("Something went wrong. Please try again.");
     } finally {

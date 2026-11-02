@@ -1,14 +1,16 @@
 import { useState, type FormEvent } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import { ArrowLeft, ShoppingBag, Truck, Smartphone, CreditCard, ShieldCheck } from "lucide-react";
+import { Link, Navigate, useNavigate } from "react-router-dom";
+import { ArrowLeft, ShoppingBag, Truck, ShieldCheck } from "lucide-react";
 import Navbar from "../components/layout/Navbar";
 import Footer from "../components/layout/Footer";
 import PaystackModal from "../components/ui/PaystackModal";
 import { useCart } from "../contexts/CartContext";
+import { authClient } from "../lib/auth-client";
 
 export default function CheckoutPage() {
   const { cart, cartTotal, clearCart } = useCart();
   const navigate = useNavigate();
+  const { data: session, isPending: isSessionPending } = authClient.useSession();
 
   const [form, setForm] = useState({
     fullName: "",
@@ -45,6 +47,18 @@ export default function CheckoutPage() {
 
   const shipping = cartTotal >= 500 ? 0 : 25;
   const total = cartTotal + shipping;
+
+  if (isSessionPending) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-gray-50 text-sm text-gray-600">
+        Checking your sign-in status...
+      </main>
+    );
+  }
+
+  if (!session) {
+    return <Navigate to="/login?redirect=%2Fcheckout" replace />;
+  }
 
   function handleChange(
     event: React.ChangeEvent<
@@ -355,29 +369,15 @@ export default function CheckoutPage() {
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <span className="font-bold text-gray-900">
-                          Paystack — Mobile Money & Card
+                          Paystack
                         </span>
                         <span className="rounded-full bg-yellow-400 px-2.5 py-0.5 text-[11px] font-black uppercase tracking-wider text-black">
                           Recommended
                         </span>
                       </div>
                       <p className="mt-1 text-xs text-gray-600">
-                        Pay securely with MTN MoMo, Telecel Cash, AT Money, or Visa / Mastercard.
+                        Choose your preferred payment method securely on Paystack.
                       </p>
-                      <div className="mt-3 flex flex-wrap items-center gap-2">
-                        <span className="inline-flex items-center gap-1 rounded-md bg-yellow-100 px-2 py-0.5 text-[10px] font-extrabold text-yellow-900">
-                          <Smartphone size={12} /> MTN MoMo
-                        </span>
-                        <span className="inline-flex items-center gap-1 rounded-md bg-red-100 px-2 py-0.5 text-[10px] font-extrabold text-red-900">
-                          Telecel Cash
-                        </span>
-                        <span className="inline-flex items-center gap-1 rounded-md bg-blue-100 px-2 py-0.5 text-[10px] font-extrabold text-blue-900">
-                          AT Money
-                        </span>
-                        <span className="inline-flex items-center gap-1 rounded-md bg-gray-100 px-2 py-0.5 text-[10px] font-extrabold text-gray-800">
-                          <CreditCard size={12} /> Visa & Mastercard
-                        </span>
-                      </div>
                     </div>
                   </label>
 
@@ -487,10 +487,8 @@ export default function CheckoutPage() {
       {/* Paystack Payment Modal */}
       <PaystackModal
         isOpen={paystackData.isOpen}
-        orderId={paystackData.orderId}
         total={paystackData.total}
         email={paystackData.email}
-        phone={paystackData.phone}
         reference={paystackData.reference}
         isSandbox={paystackData.isSandbox}
         authorizationUrl={paystackData.authorizationUrl}

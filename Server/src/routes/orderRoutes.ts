@@ -302,6 +302,11 @@ orderRouter.post("/", orderArcjetMiddleware, async (req, res) => {
     const session = await auth.api.getSession({
       headers: fromNodeHeaders(req.headers),
     });
+    if (!session) {
+      res.status(401).json({ message: "Sign in before placing an order." });
+      return;
+    }
+
     const productIds = [...quantitiesByProduct.keys()].sort();
     const result = await db.transaction(async (tx) => {
       const productRows = await tx
@@ -356,7 +361,7 @@ orderRouter.post("/", orderArcjetMiddleware, async (req, res) => {
       const [order] = await tx
         .insert(orders)
         .values({
-          userId: session?.user.id ?? null,
+          userId: session.user.id,
           fullName: data.fullName,
           email: data.email,
           phone: data.phone,
