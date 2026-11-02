@@ -11,6 +11,7 @@ import CheckoutPage from './pages/CheckoutPage'
 import OrderSuccessPage from './pages/OrderSuccessPage'
 import { ProductProvider } from './contexts/ProductProvider'
 import AccountOrdersPage from './pages/AccountOrdersPage'
+import './index.css';
 
 function CartStorageNotice() {
   const { storageError } = useCart()
