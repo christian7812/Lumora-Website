@@ -134,7 +134,7 @@ paymentRouter.post("/initialize", async (req: Request, res: Response) => {
     // 3. Graceful Sandbox Simulation when PAYSTACK_SECRET_KEY is not yet set
     await db
       .update(orders)
-      .set({ paymentReference: reference, paymentMethod: "paystack" })
+      .set({ paymentReference: reference, paymentMethod: "paystack (sandbox)" })
       .where(eq(orders.id, order.id));
 
     res.json({
@@ -171,13 +171,6 @@ paymentRouter.post("/verify", async (req: Request, res: Response) => {
   }
 
   const { reference, orderId } = parsed.data;
-
-  if (!PAYSTACK_SECRET_KEY) {
-    res.status(503).json({
-      message: "Paystack is not configured. Payment cannot be verified.",
-    });
-    return;
-  }
 
   try {
     let isSuccess = false;
@@ -220,9 +213,11 @@ paymentRouter.post("/verify", async (req: Request, res: Response) => {
       return;
     }
 
-    // Update order status in database
+    // Find and update order in database
+    let updatedOrder = null;
+
     if (targetOrderId) {
-      await db
+      const [updated] = await db
         .update(orders)
         .set({
           paymentStatus: "paid",
@@ -230,15 +225,44 @@ paymentRouter.post("/verify", async (req: Request, res: Response) => {
           paymentReference: reference,
           paymentMethod: `paystack (${paymentChannel})`,
         })
-        .where(eq(orders.id, targetOrderId));
+        .where(eq(orders.id, targetOrderId))
+        .returning();
+      updatedOrder = updated;
+    }
+
+    if (!updatedOrder) {
+      // Fallback: look up order by payment reference
+      const [found] = await db
+        .select()
+        .from(orders)
+        .where(eq(orders.paymentReference, reference))
+        .limit(1);
+
+      if (found) {
+        const [updated] = await db
+          .update(orders)
+          .set({
+            paymentStatus: "paid",
+            status: "processing",
+            paymentMethod: `paystack (${paymentChannel})`,
+          })
+          .where(eq(orders.id, found.id))
+          .returning();
+        updatedOrder = updated;
+      }
     }
 
     res.json({
       success: true,
       message: "Payment successfully verified and recorded.",
-      orderId: targetOrderId,
+      orderId: updatedOrder?.id || targetOrderId,
       reference,
       paymentStatus: "paid",
+      total: updatedOrder?.total ? Number(updatedOrder.total) : undefined,
+      customerName: updatedOrder?.fullName,
+      customerEmail: updatedOrder?.email,
+      paymentMethod: updatedOrder?.paymentMethod || `paystack (${paymentChannel})`,
+      createdAt: updatedOrder?.createdAt,
     });
   } catch (error) {
     console.error("Payment verification error:", error);
@@ -287,6 +311,15 @@ paymentRouter.post("/webhook", async (req: Request, res: Response) => {
           paymentMethod: `paystack (${channel})`,
         })
         .where(eq(orders.id, orderId));
+    } else if (reference) {
+      await db
+        .update(orders)
+        .set({
+          paymentStatus: "paid",
+          status: "processing",
+          paymentMethod: `paystack (${channel})`,
+        })
+        .where(eq(orders.paymentReference, reference));
     }
   }
 

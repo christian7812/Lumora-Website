@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { X, Sparkles, Check, Loader2, User, ShieldAlert } from "lucide-react";
+import { API_URL } from "../../lib/constants";
 
 interface PresetAvatar {
   id: string;
@@ -33,7 +34,7 @@ export default function ProfileModal({
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
 
-  const apiBase = import.meta.env.VITE_API_URL || "http://localhost:8000";
+  const apiBase = API_URL;
 
   // Sync state when modal opens or user changes
   useEffect(() => {

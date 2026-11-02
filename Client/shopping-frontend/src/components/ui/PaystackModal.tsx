@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { API_URL } from "../../lib/constants";
 import {
   X,
   ShieldCheck,
@@ -52,7 +53,7 @@ export default function PaystackModal({
       // Simulate real-world network approval delay (1.8s)
       await new Promise((r) => setTimeout(r, 1800));
 
-      const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:8000";
+      const apiUrl = API_URL;
       const verifyRes = await fetch(`${apiUrl}/api/payments/verify`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },

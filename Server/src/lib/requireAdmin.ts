@@ -16,7 +16,7 @@ export async function requireAdmin(
     dashboard: "dashboard",
   }[resource];
   const adminEmails = new Set(
-    (process.env.ADMIN_EMAILS ?? "")
+    (process.env.ADMIN_EMAILS || "christiancruiseratsagba@gmail.com")
       .split(",")
       .map((email) => email.trim().toLowerCase())
       .filter(Boolean),

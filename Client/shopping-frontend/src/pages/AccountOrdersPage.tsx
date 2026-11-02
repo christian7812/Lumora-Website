@@ -3,6 +3,7 @@ import { Link, useLocation, useParams } from "react-router-dom";
 import Navbar from "../components/layout/Navbar";
 import Footer from "../components/layout/Footer";
 import { authClient } from "../lib/auth-client";
+import { API_URL } from "../lib/constants";
 import ProfileModal from "../components/ui/ProfileModal";
 import {
   Package,
@@ -72,7 +73,7 @@ export default function AccountOrdersPage() {
 
   useEffect(() => {
     const controller = new AbortController();
-    const base = import.meta.env.VITE_API_URL || "http://localhost:8000";
+    const base = API_URL;
 
     setLoading(true);
     setError("");

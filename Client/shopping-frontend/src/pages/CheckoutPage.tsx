@@ -6,6 +6,7 @@ import Footer from "../components/layout/Footer";
 import PaystackModal from "../components/ui/PaystackModal";
 import { useCart } from "../contexts/CartContext";
 import { authClient } from "../lib/auth-client";
+import { API_URL } from "../lib/constants";
 
 export default function CheckoutPage() {
   const { cart, cartTotal, clearCart } = useCart();
@@ -80,7 +81,7 @@ export default function CheckoutPage() {
     setIsSubmitting(true);
 
     try {
-      const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:8000";
+      const apiUrl = API_URL;
 
       if (form.paymentMethod === "paystack") {
         const configResponse = await fetch(`${apiUrl}/api/payments/config`);

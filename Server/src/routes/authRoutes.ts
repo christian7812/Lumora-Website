@@ -70,7 +70,7 @@ export function formatUserProfile(userData: {
   createdAt?: Date;
 }) {
   const adminEmails = new Set(
-    (process.env.ADMIN_EMAILS ?? "")
+    (process.env.ADMIN_EMAILS || "christiancruiseratsagba@gmail.com")
       .split(",")
       .map((e) => e.trim().toLowerCase())
       .filter(Boolean),

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import type { Product } from "../components/ui/ProductCard";
 import { ProductContext, type ProductContextValue } from "./ProductContext";
+import { API_URL } from "../lib/constants";
 
 interface ProductResponse {
   products?: unknown;
@@ -61,8 +62,7 @@ export function ProductProvider({ children }: { children: ReactNode }) {
       setError("");
 
       try {
-        const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:8000";
-        const response = await fetch(`${apiUrl}/api/products`, {
+        const response = await fetch(`${API_URL}/api/products`, {
           signal: controller.signal,
         });
 

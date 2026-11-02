@@ -4,6 +4,7 @@ import { Mail, MapPin, MessageCircle, Send } from "lucide-react";
 import Navbar from "../components/layout/Navbar";
 import Footer from "../components/layout/Footer";
 import AuthInput from "../components/ui/AuthInput";
+import { API_URL } from "../lib/constants";
 
 export default function ContactPage() {
   const [name, setName] = useState("");
@@ -18,7 +19,7 @@ export default function ContactPage() {
     setNotice("");
     setIsSending(true);
     try {
-      const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:8000";
+      const apiUrl = API_URL;
       const response = await fetch(`${apiUrl}/api/contact`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },

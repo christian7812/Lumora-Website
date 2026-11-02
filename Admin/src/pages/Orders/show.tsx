@@ -99,7 +99,7 @@ export default function OrderDetailsPage() {
   const { result: showResult, query } = useShow<OrderDetails>({
     resource: "orders",
   });
-  const order = showResult?.data;
+  const order = ((showResult as unknown as { data?: OrderDetails })?.data ?? showResult) as OrderDetails | undefined;
   const { mutateAsync: updateOrderStatus, mutation: statusMutation } = useUpdate<
     OrderDetails,
     HttpError,
@@ -225,8 +225,24 @@ export default function OrderDetailsPage() {
             <CardTitle>Order summary</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <Detail label="Payment method" value={order.paymentMethod} />
-            <Detail label="Payment status" value={order.paymentStatus} />
+            <Detail label="Payment method" value={order.paymentMethod ? order.paymentMethod.replace("_", " ") : "—"} />
+            <div>
+              <p className="text-sm text-muted-foreground">Payment status</p>
+              <div className="mt-1">
+                <span
+                  className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-black uppercase tracking-wider ${
+                    order.paymentStatus === "paid"
+                      ? "bg-emerald-500/15 text-emerald-600 border border-emerald-500/30"
+                      : order.paymentStatus === "refunded"
+                      ? "bg-purple-500/15 text-purple-600 border border-purple-500/30"
+                      : "bg-amber-500/15 text-amber-600 border border-amber-500/30"
+                  }`}
+                >
+                  <span className={`h-2 w-2 rounded-full ${order.paymentStatus === "paid" ? "bg-emerald-500 animate-pulse" : order.paymentStatus === "refunded" ? "bg-purple-500" : "bg-amber-500"}`} />
+                  {order.paymentStatus}
+                </span>
+              </div>
+            </div>
             {order.paymentReference && (
               <Detail label="Paystack reference" value={order.paymentReference} />
             )}

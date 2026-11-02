@@ -220,7 +220,7 @@ export const adminAuthProvider: RefineAuthProvider = {
 
 /** Renders children when signed-in; otherwise shows a stunning modern sign-in form. */
 export function RequireAdmin({ children }: { children: ReactNode }) {
-  const { authState, signIn } = useAuth();
+  const { authState, user, signIn, signOut } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -357,6 +357,46 @@ export function RequireAdmin({ children }: { children: ReactNode }) {
             >
               ← Back to Client Store
             </a>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (authState === "signed-in" && user && !user.isAdmin) {
+    return (
+      <div className="flex min-h-[75vh] items-center justify-center px-4 py-12">
+        <div className="w-full max-w-md overflow-hidden rounded-2xl border border-destructive/30 bg-card p-8 shadow-xl">
+          <div className="mb-6 text-center">
+            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-destructive/10 text-destructive ring-8 ring-destructive/5">
+              <Shield className="h-7 w-7" />
+            </div>
+            <h1 className="text-2xl font-black tracking-tight text-foreground">
+              Admin Access Required
+            </h1>
+            <p className="mt-2 text-xs text-muted-foreground">
+              You are currently signed in as{" "}
+              <strong className="text-foreground">{user.email}</strong>, but this
+              account is not in the authorized administrator allowlist.
+            </p>
+          </div>
+
+          <div className="space-y-3">
+            <button
+              type="button"
+              onClick={() => void signOut()}
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-destructive py-3 text-sm font-bold text-destructive-foreground shadow hover:bg-destructive/90 transition"
+            >
+              Sign out & Switch Account
+            </button>
+            <div className="pt-2 text-center">
+              <a
+                href={window.location.origin.replace(":5174", ":5173")}
+                className="text-xs font-semibold text-muted-foreground transition hover:text-primary"
+              >
+                ← Back to Client Store
+              </a>
+            </div>
           </div>
         </div>
       </div>
