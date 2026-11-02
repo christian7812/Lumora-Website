@@ -1,6 +1,8 @@
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 
 export default function Footer() {
+  const location = useLocation();
+
   return (
     <footer className="bg-black text-white">
       <div className="mx-auto grid max-w-7xl grid-cols-1 gap-10 px-6 py-12 sm:grid-cols-2 lg:grid-cols-4 lg:px-8">
@@ -37,7 +39,17 @@ export default function Footer() {
               </Link>
             </li>
             <li>
-              <Link to="/login" className="transition hover:text-white">
+              <Link
+                to="/login"
+                state={{
+                  from: {
+                    pathname: location.pathname,
+                    search: location.search,
+                    hash: location.hash,
+                  },
+                }}
+                className="transition hover:text-white"
+              >
                 My Account
               </Link>
             </li>

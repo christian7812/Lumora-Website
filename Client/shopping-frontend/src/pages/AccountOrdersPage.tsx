@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useLocation, useParams } from "react-router-dom";
 import Navbar from "../components/layout/Navbar";
 import Footer from "../components/layout/Footer";
 import { authClient } from "../lib/auth-client";
@@ -45,6 +45,7 @@ interface Order {
 
 export default function AccountOrdersPage() {
   const { id } = useParams();
+  const location = useLocation();
   const [orders, setOrders] = useState<Order[]>([]);
   const [order, setOrder] = useState<Order | null>(null);
   const [error, setError] = useState("");
@@ -221,6 +222,13 @@ export default function AccountOrdersPage() {
             {error.includes("Sign in") && (
               <Link
                 to="/login"
+                state={{
+                  from: {
+                    pathname: location.pathname,
+                    search: location.search,
+                    hash: location.hash,
+                  },
+                }}
                 className="rounded-xl bg-yellow-400 px-4 py-1.5 text-xs font-bold text-black shadow-sm hover:bg-yellow-500"
               >
                 Sign In

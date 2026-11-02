@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   ShoppingBag,
   Search,
@@ -19,6 +19,14 @@ import ProfileModal from "../ui/ProfileModal";
 export default function Navbar() {
   const { cartCount } = useCart();
   const navigate = useNavigate();
+  const location = useLocation();
+  const authLinkState = {
+    from: {
+      pathname: location.pathname,
+      search: location.search,
+      hash: location.hash,
+    },
+  };
 
   const [menuOpen, setMenuOpen] = useState(false);
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
@@ -254,6 +262,7 @@ export default function Navbar() {
             /* When Signed Out: Sign In Button */
             <Link
               to="/login"
+              state={authLinkState}
               className="inline-flex items-center gap-1.5 rounded-full bg-yellow-400 px-4 py-2 text-xs font-bold text-black shadow-sm transition hover:bg-yellow-500 sm:text-sm"
             >
               <UserRound size={16} />
@@ -325,6 +334,7 @@ export default function Navbar() {
           ) : (
             <Link
               to="/login"
+              state={authLinkState}
               onClick={() => setMenuOpen(false)}
               className="flex w-full items-center justify-center gap-2 rounded-2xl bg-yellow-400 py-3.5 text-center text-sm font-bold text-black shadow"
             >

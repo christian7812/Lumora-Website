@@ -1,16 +1,27 @@
 import { useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useLocation, useSearchParams } from "react-router-dom";
 import LoginForm from "../components/auth/LoginForm";
 import RegisterForm from "../components/auth/RegisterForm";
 
 export default function AuthPage() {
-  const [isRegistering, setIsRegistering] = useState(false);
+  const location = useLocation();
+  const [isRegistering, setIsRegistering] = useState(
+    location.pathname === "/register",
+  );
   const [searchParams] = useSearchParams();
   const requestedRedirect = searchParams.get("redirect");
-  const redirectTo =
-    requestedRedirect?.startsWith("/") && !requestedRedirect.startsWith("//")
+  const previousLocation = (
+    location.state as {
+      from?: { pathname?: string; search?: string; hash?: string };
+    } | null
+  )?.from;
+  const previousPath = previousLocation?.pathname;
+  const redirectTo = requestedRedirect?.startsWith("/") &&
+    !requestedRedirect.startsWith("//")
       ? requestedRedirect
-      : "/";
+      : previousPath?.startsWith("/") && !previousPath.startsWith("//")
+        ? `${previousPath}${previousLocation?.search ?? ""}${previousLocation?.hash ?? ""}`
+        : "/";
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-gray-100 px-4 py-10">
