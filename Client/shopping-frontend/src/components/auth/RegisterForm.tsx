@@ -75,6 +75,18 @@ export default function RegisterForm({
         return;
       }
 
+      const signInResult = await authClient.signIn.email({
+        email,
+        password,
+      });
+
+      if (signInResult.error) {
+        setError(
+          "Your account was created, but we couldn't sign you in automatically. Please sign in with your new account.",
+        );
+        return;
+      }
+
       navigate(redirectTo, { replace: true });
     } catch {
       setError("Something went wrong. Please try again.");
