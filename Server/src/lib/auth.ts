@@ -25,6 +25,13 @@ export const auth = betterAuth({
     enabled: true,
   },
 
+  advanced: {
+    defaultCookieAttributes:
+      process.env.NODE_ENV === "production"
+        ? { sameSite: "none", secure: true, partitioned: true }
+        : { sameSite: "lax" },
+  },
+
   trustedOrigins: (process.env.CORS_ORIGINS ??
     "http://localhost:5173,http://localhost:5174")
     .split(",")

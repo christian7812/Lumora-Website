@@ -1,5 +1,4 @@
 import { useState, type SubmitEvent } from "react";
-import { useNavigate } from "react-router-dom";
 import { authClient } from "../../lib/auth-client";
 import AuthInput from "../ui/AuthInput";
 import { Sparkles, Check } from "lucide-react";
@@ -37,7 +36,6 @@ export default function RegisterForm({
   onSwitchToLogin,
   redirectTo,
 }: RegisterFormProps) {
-  const navigate = useNavigate();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -75,21 +73,13 @@ export default function RegisterForm({
         return;
       }
 
-      const signInResult = await authClient.signIn.email({
-        email,
-        password,
-      });
-
-      if (signInResult.error) {
-        setError(
-          "Your account was created, but we couldn't sign you in automatically. Please sign in with your new account.",
-        );
-        return;
-      }
-
-      navigate(redirectTo, { replace: true });
-    } catch {
-      setError("Something went wrong. Please try again.");
+      window.location.assign(redirectTo);
+    } catch (submitError) {
+      setError(
+        submitError instanceof Error
+          ? submitError.message
+          : "Something went wrong. Please try again.",
+      );
     } finally {
       setLoading(false);
     }
