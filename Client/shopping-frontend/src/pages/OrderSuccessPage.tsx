@@ -334,20 +334,22 @@ export default function OrderSuccessPage() {
 
         {/* Action Buttons */}
         <div className="mt-8 flex w-full max-w-md flex-col gap-3 sm:flex-row sm:justify-center">
-          <a
-            href="/account/orders"
+          <button
+            type="button"
+            onClick={() => window.location.assign("/account/orders")}
             className="flex items-center justify-center gap-2 rounded-2xl bg-slate-800 px-6 py-3.5 text-xs font-bold text-white shadow-md transition hover:bg-slate-700"
           >
             <ReceiptText size={16} />
             <span>View My Orders</span>
-          </a>
-          <a
-            href="/products"
+          </button>
+          <button
+            type="button"
+            onClick={() => window.location.assign("/products")}
             className="flex items-center justify-center gap-2 rounded-2xl bg-teal-500 px-6 py-3.5 text-xs font-bold text-white shadow-md transition hover:bg-teal-400"
           >
             <ShoppingBag size={16} />
             <span>Continue Shopping</span>
-          </a>
+          </button>
         </div>
       </main>
 
