@@ -2,22 +2,24 @@ import { useState, useRef, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   ShoppingBag,
+  Heart,
   Search,
   Menu,
   X,
   UserRound,
   LogOut,
   Package,
-  Shield,
   ChevronDown,
   Sparkles,
 } from "lucide-react";
 import { useCart } from "../../contexts/CartContext";
+import { useFavorites } from "../../contexts/FavoritesContext";
 import { authClient } from "../../lib/auth-client";
 import ProfileModal from "../ui/ProfileModal";
 
 export default function Navbar() {
   const { cartCount } = useCart();
+  const { favorites } = useFavorites();
   const navigate = useNavigate();
   const location = useLocation();
   const authLinkState = {
@@ -218,6 +220,22 @@ export default function Navbar() {
                     </Link>
 
                     <Link
+                      to="/favorites"
+                      onClick={() => setUserDropdownOpen(false)}
+                      className="flex items-center justify-between rounded-xl px-3 py-2.5 font-semibold text-gray-700 transition hover:bg-yellow-50 hover:text-yellow-800"
+                    >
+                      <span className="flex items-center gap-2.5">
+                        <Heart size={17} className="text-red-500" />
+                        <span>Favorites</span>
+                      </span>
+                      {favorites.length > 0 && (
+                        <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-bold text-red-700">
+                          {favorites.length}
+                        </span>
+                      )}
+                    </Link>
+
+                    <Link
                       to="/cart"
                       onClick={() => setUserDropdownOpen(false)}
                       className="flex items-center justify-between rounded-xl px-3 py-2.5 font-semibold text-gray-700 transition hover:bg-yellow-50 hover:text-yellow-800"
@@ -233,15 +251,6 @@ export default function Navbar() {
                       )}
                     </Link>
 
-                    <a
-                      href="http://localhost:5174"
-                      target="_blank"
-                      rel="noreferrer"
-                      className="flex items-center gap-2.5 rounded-xl px-3 py-2.5 font-semibold text-gray-700 transition hover:bg-gray-100 hover:text-black"
-                    >
-                      <Shield size={17} className="text-gray-500" />
-                      <span>Admin Panel</span>
-                    </a>
                   </div>
 
                   {/* Sign Out Button */}
@@ -271,6 +280,19 @@ export default function Navbar() {
           )}
 
           {/* Cart Icon with reactive quantity pill */}
+          <Link
+            to="/favorites"
+            aria-label={`Favorites, ${favorites.length} saved products`}
+            className="relative flex h-10 w-10 items-center justify-center rounded-full bg-gray-100 p-2 text-black transition hover:bg-red-100 hover:text-red-600"
+          >
+            <Heart size={19} />
+            {favorites.length > 0 && (
+              <span className="absolute -right-1.5 -top-1.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-600 px-1.5 text-[11px] font-black text-white shadow-sm">
+                {favorites.length}
+              </span>
+            )}
+          </Link>
+
           <Link
             to="/cart"
             aria-label={`Shopping bag, ${cartCount} items`}
@@ -394,6 +416,16 @@ export default function Navbar() {
                   onClick={() => setMenuOpen(false)}
                 >
                   <span>My Orders</span>
+                </Link>
+                <Link
+                  to="/favorites"
+                  className="flex items-center justify-between rounded-xl p-3 hover:bg-gray-100"
+                  onClick={() => setMenuOpen(false)}
+                >
+                  <span className="flex items-center gap-2">
+                    <Heart size={18} className="text-red-500" />
+                    <span>Favorites ({favorites.length})</span>
+                  </span>
                 </Link>
               </>
             )}

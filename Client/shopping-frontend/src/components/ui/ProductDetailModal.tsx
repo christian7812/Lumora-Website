@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import type { Product } from "./ProductCard";
+import { useFavorites } from "../../contexts/FavoritesContext";
 
 interface ProductDetailModalProps {
   product: Product | null;
@@ -67,13 +68,14 @@ function ProductDetailDialog({
   onAddToCart,
 }: ProductDetailDialogProps) {
   const navigate = useNavigate();
+  const { isFavorite, toggleFavorite } = useFavorites();
   const sizes = getCategorySizes(product.category, product.name);
 
   const [quantity, setQuantity] = useState(1);
   const [selectedSize, setSelectedSize] = useState<string>(sizes[0] ?? "Standard");
   const [selectedColor, setSelectedColor] = useState<string>("Classic Black");
   const [isAdded, setIsAdded] = useState(false);
-  const [isWishlisted, setIsWishlisted] = useState(false);
+  const isWishlisted = isFavorite(product.id);
 
   const discountPercent =
     product.oldPrice && product.oldPrice > product.price
@@ -142,8 +144,9 @@ function ProductDetailDialog({
 
           <button
             type="button"
-            onClick={() => setIsWishlisted(!isWishlisted)}
+            onClick={() => toggleFavorite(product)}
             aria-label={isWishlisted ? "Remove from wishlist" : "Add to wishlist"}
+            aria-pressed={isWishlisted}
             className={`rounded-full p-2 transition ${
               isWishlisted
                 ? "bg-red-50 text-red-600"

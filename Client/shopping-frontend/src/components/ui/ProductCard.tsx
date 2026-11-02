@@ -1,4 +1,5 @@
 import { ShoppingCart, Heart, Eye } from "lucide-react";
+import { useFavorites } from "../../contexts/FavoritesContext";
 
 export interface Product {
   id: string;
@@ -21,6 +22,8 @@ export default function ProductCard({
   onAddToCart,
   onQuickView,
 }: ProductCardProps) {
+  const { isFavorite, toggleFavorite } = useFavorites();
+  const isWishlisted = isFavorite(product.id);
   const isOutOfStock = product.stockQuantity <= 0;
   const hasDiscount = Boolean(product.oldPrice && product.oldPrice > product.price);
   const discountPercent = hasDiscount && product.oldPrice
@@ -65,13 +68,17 @@ export default function ProductCard({
         <div className="absolute right-2.5 top-2.5 flex flex-col gap-1.5 sm:right-3 sm:top-3">
           <button
             type="button"
-            aria-label={`Add ${product.name} to wishlist`}
+            aria-label={`${isWishlisted ? "Remove" : "Add"} ${product.name} ${isWishlisted ? "from" : "to"} favorites`}
+            aria-pressed={isWishlisted}
             onClick={(e) => {
               e.stopPropagation();
+              toggleFavorite(product);
             }}
-            className="flex h-8 w-8 items-center justify-center rounded-full bg-white/90 text-gray-700 shadow transition hover:bg-yellow-400 hover:text-black sm:h-9 sm:w-9"
+            className={`flex h-8 w-8 items-center justify-center rounded-full bg-white/90 shadow transition hover:bg-yellow-400 hover:text-black sm:h-9 sm:w-9 ${
+              isWishlisted ? "text-red-600" : "text-gray-700"
+            }`}
           >
-            <Heart size={16} />
+            <Heart size={16} fill={isWishlisted ? "currentColor" : "none"} />
           </button>
 
           <button
