@@ -45,7 +45,7 @@ export default function CheckoutPage() {
     isSandbox: true,
   });
 
-  const shipping = cartTotal >= 500 ? 0 : 25;
+  const shipping = 0;
   const total = cartTotal + shipping;
 
   if (isSessionPending) {
@@ -472,15 +472,11 @@ export default function CheckoutPage() {
 
                 <div className="flex justify-between">
                   <span className="text-gray-600">Shipping</span>
-                  <span className="font-semibold">
-                    {shipping === 0 ? "Free" : `GH₵ ${shipping.toFixed(2)}`}
-                  </span>
+                  <span className="font-semibold">Free</span>
                 </div>
 
                 <p className="text-xs text-emerald-700 font-medium">
-                  {shipping === 0
-                    ? "✓ You qualify for Free Delivery"
-                    : "Free delivery on orders of GH₵ 500 or more."}
+                  ✓ Free delivery on every order.
                 </p>
 
                 <div className="flex justify-between border-t border-gray-100 pt-4 text-xl font-black">

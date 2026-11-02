@@ -8,7 +8,7 @@ export default function CartPage() {
   const { cart, cartTotal, updateQuantity, removeFromCart } =
     useCart();
   const subtotal = cartTotal;
-  const shipping = subtotal >= 500 ? 0 : 25;
+  const shipping = 0;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -150,7 +150,7 @@ export default function CartPage() {
 
               <div className="mt-4 flex justify-between text-gray-600">
                 <span>Shipping</span>
-                <span>{shipping === 0 ? "Free" : `GH₵ ${shipping.toFixed(2)}`}</span>
+                <span>Free</span>
               </div>
 
               <div className="mt-6 border-t border-gray-200 pt-5">
@@ -160,7 +160,7 @@ export default function CartPage() {
                 </div>
 
                 <p className="mt-2 text-xs text-gray-500">
-                  Free shipping on orders of GH₵ 500 or more.
+                  Free delivery on every order.
                 </p>
               </div>
 

@@ -348,7 +348,7 @@ orderRouter.post("/", orderArcjetMiddleware, async (req, res) => {
         (sum, item) => sum + item.priceCents * item.quantity,
         0,
       );
-      const shippingCents = subtotalCents >= 50000 ? 0 : 2500;
+      const shippingCents = 0;
       const totalCents = subtotalCents + shippingCents;
 
       for (const item of trustedItems) {
