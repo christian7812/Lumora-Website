@@ -431,7 +431,7 @@ export default function CheckoutPage() {
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="w-full rounded-2xl bg-yellow-400 px-6 py-4 font-black text-black shadow-lg transition hover:bg-yellow-300 hover:shadow-xl disabled:opacity-60"
+                className="w-full rounded-2xl bg-indigo-200 px-6 py-4 font-black text-slate-800 shadow-lg transition hover:bg-indigo-300 hover:shadow-xl disabled:opacity-60"
               >
                 {isSubmitting
                   ? "Processing Order…"
