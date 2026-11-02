@@ -5,123 +5,134 @@ import { Link } from "react-router-dom";
 interface Slide {
   id: number;
   badge: string;
-  heading: string[];
+  heading: string;
   highlight: string;
   sub: string;
   shopLink: string;
   shopLabel: string;
   image: string;
   imageAlt: string;
-  tag: string;
-  tagSub: string;
-  bg: string;
-  accentText: string;
+  overlay: string;
+  accentColor: string;
   badgeBg: string;
   badgeText: string;
   btnBg: string;
   btnText: string;
-  outlineBorder: string;
-  outlineText: string;
-  outlineHoverBg: string;
-  outlineHoverText: string;
+  btnHover: string;
 }
 
 const SLIDES: Slide[] = [
   {
     id: 0,
     badge: "Welcome to Lumora",
-    heading: ["Your Style.", "Your Choice."],
+    heading: "Your Style. Your Choice.",
     highlight: "Your Store.",
     sub: "Discover quality products, explore new arrivals, and find something you love — all in one place.",
     shopLink: "/products",
     shopLabel: "Shop Now",
-    image: "https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=1000&auto=format&fit=crop&q=80",
+    image: "https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=1400&auto=format&fit=crop&q=80",
     imageAlt: "Fashion and retail shopping store",
-    tag: "Your next favourite find",
-    tagSub: "Shop Lumora",
-    bg: "bg-yellow-400",
-    accentText: "text-white",
-    badgeBg: "bg-black",
-    badgeText: "text-yellow-400",
-    btnBg: "bg-black hover:bg-gray-800",
+    overlay: "from-slate-900/80 via-slate-800/50 to-transparent",
+    accentColor: "text-teal-300",
+    badgeBg: "bg-teal-400/20 border border-teal-300/40",
+    badgeText: "text-teal-200",
+    btnBg: "bg-teal-500",
     btnText: "text-white",
-    outlineBorder: "border-black",
-    outlineText: "text-black",
-    outlineHoverBg: "hover:bg-black",
-    outlineHoverText: "hover:text-yellow-400",
+    btnHover: "hover:bg-teal-400",
   },
   {
     id: 1,
     badge: "New Arrivals",
-    heading: ["Fresh Drops.", "Bold Looks."],
+    heading: "Fresh Drops. Bold Looks.",
     highlight: "New Season.",
     sub: "Stay ahead of the trend with our latest collection — curated for the modern shopper.",
     shopLink: "/products?category=Fashion",
     shopLabel: "Explore Fashion",
-    image: "https://images.unsplash.com/photo-1490481651871-ab68de25d43d?w=1000&auto=format&fit=crop&q=80",
+    image: "https://images.unsplash.com/photo-1490481651871-ab68de25d43d?w=1400&auto=format&fit=crop&q=80",
     imageAlt: "Fashion clothing collection",
-    tag: "Trending this season",
-    tagSub: "View Collection",
-    bg: "bg-slate-900",
-    accentText: "text-yellow-400",
-    badgeBg: "bg-yellow-400",
-    badgeText: "text-black",
-    btnBg: "bg-yellow-400 hover:bg-yellow-300",
-    btnText: "text-black",
-    outlineBorder: "border-yellow-400",
-    outlineText: "text-yellow-400",
-    outlineHoverBg: "hover:bg-yellow-400",
-    outlineHoverText: "hover:text-black",
+    overlay: "from-stone-900/85 via-stone-800/50 to-transparent",
+    accentColor: "text-amber-300",
+    badgeBg: "bg-amber-400/20 border border-amber-300/40",
+    badgeText: "text-amber-200",
+    btnBg: "bg-amber-500",
+    btnText: "text-white",
+    btnHover: "hover:bg-amber-400",
   },
   {
     id: 2,
     badge: "Best Sellers",
-    heading: ["Top Picks.", "Loved by All."],
+    heading: "Top Picks. Loved by All.",
     highlight: "Shop Bestsellers.",
     sub: "From electronics to home & living — our best-selling products are waiting for you.",
     shopLink: "/products",
     shopLabel: "See Best Sellers",
-    image: "https://images.unsplash.com/photo-1498049794561-7780e7231661?w=1000&auto=format&fit=crop&q=80",
+    image: "https://images.unsplash.com/photo-1498049794561-7780e7231661?w=1400&auto=format&fit=crop&q=80",
     imageAlt: "Electronics and gadgets collection",
-    tag: "Customers love these",
-    tagSub: "Top Rated",
-    bg: "bg-emerald-600",
-    accentText: "text-white",
-    badgeBg: "bg-white",
-    badgeText: "text-emerald-700",
-    btnBg: "bg-white hover:bg-gray-100",
-    btnText: "text-emerald-700",
-    outlineBorder: "border-white",
-    outlineText: "text-white",
-    outlineHoverBg: "hover:bg-white",
-    outlineHoverText: "hover:text-emerald-700",
+    overlay: "from-indigo-900/85 via-indigo-800/50 to-transparent",
+    accentColor: "text-indigo-200",
+    badgeBg: "bg-indigo-400/20 border border-indigo-300/40",
+    badgeText: "text-indigo-200",
+    btnBg: "bg-indigo-500",
+    btnText: "text-white",
+    btnHover: "hover:bg-indigo-400",
   },
   {
     id: 3,
     badge: "Special Deals",
-    heading: ["Big Savings.", "Every Day."],
+    heading: "Big Savings. Every Day.",
     highlight: "Deals You'll Love.",
     sub: "Unlock amazing discounts on hundreds of products. Don't miss out on our limited-time offers.",
     shopLink: "/products",
     shopLabel: "Grab Deals",
-    image: "https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?w=1000&auto=format&fit=crop&q=80",
+    image: "https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?w=1400&auto=format&fit=crop&q=80",
     imageAlt: "Shopping bags and sale items",
-    tag: "Limited time only",
-    tagSub: "Shop Deals",
-    bg: "bg-rose-600",
-    accentText: "text-white",
-    badgeBg: "bg-white",
-    badgeText: "text-rose-600",
-    btnBg: "bg-white hover:bg-gray-100",
-    btnText: "text-rose-600",
-    outlineBorder: "border-white",
-    outlineText: "text-white",
-    outlineHoverBg: "hover:bg-white",
-    outlineHoverText: "hover:text-rose-600",
+    overlay: "from-rose-900/85 via-rose-800/50 to-transparent",
+    accentColor: "text-rose-200",
+    badgeBg: "bg-rose-400/20 border border-rose-300/40",
+    badgeText: "text-rose-200",
+    btnBg: "bg-rose-500",
+    btnText: "text-white",
+    btnHover: "hover:bg-rose-400",
+  },
+  {
+    id: 4,
+    badge: "Home & Living",
+    heading: "Comfort Meets Style.",
+    highlight: "For Your Home.",
+    sub: "Transform your living space with our curated home & lifestyle collection, delivered to you.",
+    shopLink: "/products?category=Home%20%26%20Living",
+    shopLabel: "Shop Home & Living",
+    image: "https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=1400&auto=format&fit=crop&q=80",
+    imageAlt: "Home and living products",
+    overlay: "from-emerald-900/80 via-emerald-800/50 to-transparent",
+    accentColor: "text-emerald-200",
+    badgeBg: "bg-emerald-400/20 border border-emerald-300/40",
+    badgeText: "text-emerald-200",
+    btnBg: "bg-emerald-500",
+    btnText: "text-white",
+    btnHover: "hover:bg-emerald-400",
+  },
+  {
+    id: 5,
+    badge: "Electronics",
+    heading: "Tech That Moves You.",
+    highlight: "Next-Gen Gadgets.",
+    sub: "Explore the latest phones, accessories and smart devices at unbeatable prices.",
+    shopLink: "/products?category=Electronics",
+    shopLabel: "Shop Electronics",
+    image: "https://images.unsplash.com/photo-1519389950473-47ba0277781c?w=1400&auto=format&fit=crop&q=80",
+    imageAlt: "Electronics and tech gadgets",
+    overlay: "from-sky-900/85 via-sky-800/50 to-transparent",
+    accentColor: "text-sky-200",
+    badgeBg: "bg-sky-400/20 border border-sky-300/40",
+    badgeText: "text-sky-200",
+    btnBg: "bg-sky-500",
+    btnText: "text-white",
+    btnHover: "hover:bg-sky-400",
   },
 ];
 
-const INTERVAL_MS = 5000;
+const INTERVAL_MS = 6000;
 
 export default function Hero() {
   const [current, setCurrent] = useState(0);
@@ -129,138 +140,102 @@ export default function Hero() {
   const [isPaused, setIsPaused] = useState(false);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const goTo = useCallback((index: number) => {
-    if (isTransitioning) return;
-    setIsTransitioning(true);
-    setCurrent((index + SLIDES.length) % SLIDES.length);
-    setTimeout(() => setIsTransitioning(false), 600);
-  }, [isTransitioning]);
+  const goTo = useCallback(
+    (index: number) => {
+      if (isTransitioning) return;
+      setIsTransitioning(true);
+      setCurrent((index + SLIDES.length) % SLIDES.length);
+      setTimeout(() => setIsTransitioning(false), 700);
+    },
+    [isTransitioning],
+  );
 
   const next = useCallback(() => goTo(current + 1), [current, goTo]);
   const prev = useCallback(() => goTo(current - 1), [current, goTo]);
 
-  // Auto-advance
   useEffect(() => {
-    if (isPaused) return;
+    if (isPaused) {
+      if (timerRef.current) clearInterval(timerRef.current);
+      return;
+    }
     timerRef.current = setInterval(next, INTERVAL_MS);
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
     };
   }, [next, isPaused]);
 
-  // Keyboard navigation
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "ArrowLeft") prev();
-      else if (e.key === "ArrowRight") next();
-    }
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [prev, next]);
+  const s = SLIDES[current];
 
   return (
     <section
-      className="relative overflow-hidden"
-      aria-label="Hero carousel"
+      className="relative w-full overflow-hidden"
+      style={{ height: "clamp(480px, 75vh, 720px)" }}
       onMouseEnter={() => setIsPaused(true)}
       onMouseLeave={() => setIsPaused(false)}
+      aria-roledescription="carousel"
+      aria-label="Featured promotions"
     >
-      {/* Slides container */}
-      <div className="relative min-h-[520px]">
-        {SLIDES.map((s, i) => (
+      {/* Full-width background images */}
+      {SLIDES.map((slide, i) => (
+        <div
+          key={slide.id}
+          aria-hidden={i !== current}
+          className="absolute inset-0 transition-opacity duration-700"
+          style={{ opacity: i === current ? 1 : 0, zIndex: i === current ? 1 : 0 }}
+        >
+          <img
+            src={slide.image}
+            alt={slide.imageAlt}
+            className="h-full w-full object-cover object-center"
+            loading={i === 0 ? "eager" : "lazy"}
+          />
+          {/* gradient overlay */}
+          <div className={`absolute inset-0 bg-gradient-to-r ${slide.overlay}`} />
+        </div>
+      ))}
+
+      {/* Content */}
+      <div className="relative z-10 flex h-full items-center">
+        <div className="mx-auto w-full max-w-7xl px-6 sm:px-10 lg:px-16">
           <div
-            key={s.id}
-            className={`absolute inset-0 transition-all duration-600 ease-in-out ${s.bg} ${
-              i === current
-                ? "opacity-100 translate-x-0 z-10"
-                : i === (current - 1 + SLIDES.length) % SLIDES.length
-                ? "opacity-0 -translate-x-full z-0"
-                : "opacity-0 translate-x-full z-0"
-            }`}
-            style={{ transition: "opacity 0.6s ease, transform 0.6s ease" }}
-            aria-hidden={i !== current}
+            className="max-w-xl transition-all duration-700"
+            style={{ opacity: isTransitioning ? 0 : 1, transform: isTransitioning ? "translateY(16px)" : "translateY(0)" }}
           >
-            <div className="mx-auto grid min-h-[520px] max-w-7xl items-center gap-12 px-4 py-12 sm:px-6 sm:py-16 md:grid-cols-2 md:gap-8 lg:gap-12 lg:px-8">
-              {/* Text */}
-              <div className="relative z-10">
-                <span
-                  className={`inline-block rounded-full px-3 py-2 text-[0.65rem] font-bold uppercase tracking-widest sm:px-4 sm:text-xs ${s.badgeBg} ${s.badgeText}`}
-                >
-                  {s.badge}
-                </span>
+            {/* Badge */}
+            <span className={`inline-block rounded-full px-3.5 py-1 text-xs font-bold uppercase tracking-widest backdrop-blur-sm ${s.badgeBg} ${s.badgeText}`}>
+              {s.badge}
+            </span>
 
-                <h1 className={`mt-5 text-4xl font-black leading-[1.05] tracking-tight sm:mt-6 sm:text-5xl lg:text-6xl ${
-                  i === current ? "text-black" : "text-black"
-                } ${s.bg === "bg-slate-900" ? "text-white" : "text-black"}`}>
-                  {s.heading.map((line, li) => (
-                    <span key={li}>
-                      {line}
-                      <br />
-                    </span>
-                  ))}
-                  <span className={s.accentText}>{s.highlight}</span>
-                </h1>
+            {/* Heading */}
+            <h1 className="mt-4 text-4xl font-black leading-tight tracking-tight text-white sm:text-5xl lg:text-6xl">
+              {s.heading}{" "}
+              <span className={s.accentColor}>{s.highlight}</span>
+            </h1>
 
-                <p className={`mt-5 max-w-lg text-sm leading-6 sm:mt-6 sm:text-lg sm:leading-7 ${
-                  s.bg === "bg-slate-900" ? "text-gray-300" : "text-black/75"
-                }`}>
-                  {s.sub}
-                </p>
+            {/* Sub */}
+            <p className="mt-4 text-base text-white/80 leading-relaxed sm:text-lg max-w-md">
+              {s.sub}
+            </p>
 
-                <div className="mt-7 flex flex-col gap-3 min-[520px]:flex-row min-[520px]:flex-wrap min-[520px]:gap-4 sm:mt-8">
-                  <Link
-                    to={s.shopLink}
-                    className={`inline-flex min-h-12 items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-bold transition min-[520px]:px-5 sm:px-6 sm:py-4 sm:text-base ${s.btnBg} ${s.btnText}`}
-                  >
-                    {s.shopLabel}
-                    <ArrowRight size={20} />
-                  </Link>
-
-                  <a
-                    href="#featured-products"
-                    className={`inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border-2 px-4 py-3 text-sm font-bold transition min-[520px]:px-5 sm:px-6 sm:py-4 sm:text-base ${s.outlineBorder} ${s.outlineText} ${s.outlineHoverBg} ${s.outlineHoverText}`}
-                  >
-                    <ShoppingBag size={20} />
-                    Explore Products
-                  </a>
-                </div>
-
-                {/* Stats */}
-                <div className={`mt-8 grid grid-cols-3 gap-3 border-t pt-5 sm:mt-10 sm:flex sm:flex-wrap sm:gap-8 sm:pt-6 ${
-                  s.bg === "bg-slate-900" ? "border-white/20" : "border-black/20"
-                }`}>
-                  {["Quality", "Variety", "Convenience"].map((stat, si) => (
-                    <div key={si}>
-                      <p className={`text-lg font-black sm:text-2xl ${s.bg === "bg-slate-900" ? "text-white" : "text-black"}`}>
-                        {stat}
-                      </p>
-                      <p className={`mt-1 text-xs sm:text-sm ${s.bg === "bg-slate-900" ? "text-gray-400" : "text-black/70"}`}>
-                        {["Products you love", "More choices", "Easy shopping"][si]}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Image */}
-              <div className="relative mx-auto mb-5 w-full max-w-lg min-w-0">
-                <div className={`absolute inset-3 rotate-6 rounded-[2rem] sm:inset-4 ${
-                  s.bg === "bg-yellow-400" ? "bg-black" : "bg-black/30"
-                }`} />
-                <img
-                  src={s.image}
-                  alt={s.imageAlt}
-                  className="relative h-[280px] w-full rounded-3xl object-cover shadow-2xl sm:h-[360px] sm:rounded-[2rem] lg:h-[450px]"
-                  loading={i === 0 ? "eager" : "lazy"}
-                />
-                <div className="absolute -bottom-5 left-2 max-w-[calc(100%_-_1rem)] rounded-2xl bg-white p-3 shadow-xl sm:left-4 sm:p-4 lg:-left-6">
-                  <p className="text-xs font-medium text-gray-500">{s.tag}</p>
-                  <p className="mt-1 font-bold text-black">{s.tagSub}</p>
-                </div>
-              </div>
+            {/* Buttons */}
+            <div className="mt-8 flex flex-wrap gap-3">
+              <Link
+                to={s.shopLink}
+                className={`inline-flex items-center gap-2 rounded-xl px-6 py-3.5 text-sm font-bold shadow-lg transition ${s.btnBg} ${s.btnText} ${s.btnHover}`}
+              >
+                {s.shopLabel}
+                <ArrowRight size={18} />
+              </Link>
+              <a
+                href="#featured-products"
+                className="inline-flex items-center gap-2 rounded-xl border border-white/30 px-6 py-3.5 text-sm font-bold text-white backdrop-blur-sm transition hover:bg-white/10"
+              >
+                <ShoppingBag size={18} />
+                Explore Products
+              </a>
             </div>
           </div>
-        ))}
+        </div>
       </div>
 
       {/* Prev / Next buttons */}
@@ -268,7 +243,7 @@ export default function Hero() {
         type="button"
         onClick={prev}
         aria-label="Previous slide"
-        className="absolute left-3 top-1/2 z-20 -translate-y-1/2 rounded-full bg-black/20 p-2 text-white backdrop-blur-sm transition hover:bg-black/50 sm:left-4 sm:p-3"
+        className="absolute left-4 top-1/2 z-20 -translate-y-1/2 rounded-full bg-black/25 p-2.5 text-white backdrop-blur-sm transition hover:bg-black/50 sm:left-6 sm:p-3"
       >
         <ChevronLeft size={22} />
       </button>
@@ -276,25 +251,23 @@ export default function Hero() {
         type="button"
         onClick={next}
         aria-label="Next slide"
-        className="absolute right-3 top-1/2 z-20 -translate-y-1/2 rounded-full bg-black/20 p-2 text-white backdrop-blur-sm transition hover:bg-black/50 sm:right-4 sm:p-3"
+        className="absolute right-4 top-1/2 z-20 -translate-y-1/2 rounded-full bg-black/25 p-2.5 text-white backdrop-blur-sm transition hover:bg-black/50 sm:right-6 sm:p-3"
       >
         <ChevronRight size={22} />
       </button>
 
-      {/* Dot indicators */}
-      <div className="absolute bottom-4 left-1/2 z-20 flex -translate-x-1/2 gap-2" role="tablist" aria-label="Slide indicators">
-        {SLIDES.map((s, i) => (
+      {/* Slide count & dots */}
+      <div className="absolute bottom-5 left-1/2 z-20 flex -translate-x-1/2 items-center gap-2" role="tablist" aria-label="Slide indicators">
+        {SLIDES.map((sl, i) => (
           <button
-            key={s.id}
+            key={sl.id}
             type="button"
             role="tab"
             aria-selected={i === current}
             aria-label={`Go to slide ${i + 1}`}
             onClick={() => goTo(i)}
-            className={`h-2.5 rounded-full transition-all duration-300 ${
-              i === current
-                ? "w-8 bg-white"
-                : "w-2.5 bg-white/50 hover:bg-white/75"
+            className={`rounded-full transition-all duration-300 ${
+              i === current ? "w-8 h-2.5 bg-white" : "w-2.5 h-2.5 bg-white/40 hover:bg-white/70"
             }`}
           />
         ))}
@@ -302,13 +275,11 @@ export default function Hero() {
 
       {/* Progress bar */}
       {!isPaused && (
-        <div className="absolute bottom-0 left-0 z-20 h-0.5 w-full overflow-hidden bg-black/10">
+        <div className="absolute bottom-0 left-0 z-20 h-0.5 w-full overflow-hidden bg-white/10">
           <div
             key={`${current}-progress`}
-            className="h-full bg-white/60"
-            style={{
-              animation: `heroProgress ${INTERVAL_MS}ms linear forwards`,
-            }}
+            className="h-full bg-white/50"
+            style={{ animation: `heroProgress ${INTERVAL_MS}ms linear forwards` }}
           />
         </div>
       )}

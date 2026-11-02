@@ -272,7 +272,7 @@ export default function Navbar() {
             <Link
               to="/login"
               state={authLinkState}
-              className="inline-flex items-center gap-1.5 rounded-full bg-yellow-400 px-4 py-2 text-xs font-bold text-black shadow-sm transition hover:bg-yellow-500 sm:text-sm"
+              className="inline-flex items-center gap-1.5 rounded-full bg-slate-800 px-4 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-slate-700 sm:text-sm"
             >
               <UserRound size={16} />
               <span>Sign In</span>

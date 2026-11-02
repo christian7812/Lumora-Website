@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link, useLocation, useParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import Navbar from "../components/layout/Navbar";
 import Footer from "../components/layout/Footer";
 import { authClient } from "../lib/auth-client";
@@ -47,6 +47,7 @@ interface Order {
 export default function AccountOrdersPage() {
   const { id } = useParams();
   const location = useLocation();
+  const navigate = useNavigate();
   const [orders, setOrders] = useState<Order[]>([]);
   const [order, setOrder] = useState<Order | null>(null);
   const [error, setError] = useState("");
@@ -54,12 +55,19 @@ export default function AccountOrdersPage() {
   const [profileModalOpen, setProfileModalOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState<string>("all");
 
-  const { data: session } = authClient.useSession();
+  const { data: session, isPending: sessionPending } = authClient.useSession();
   const user = (
     session as {
       user?: { name?: string; email?: string; image?: string };
     } | null
   )?.user;
+
+  // Redirect to login if not authenticated
+  useEffect(() => {
+    if (!sessionPending && !user) {
+      navigate(`/login?redirect=${encodeURIComponent(location.pathname)}`, { replace: true });
+    }
+  }, [sessionPending, user, navigate, location.pathname]);
 
   const initials = user?.name
     ? user.name
@@ -131,19 +139,27 @@ export default function AccountOrdersPage() {
   });
 
   return (
-    <div className="min-h-screen bg-gray-50/70 flex flex-col justify-between">
+    <div className="min-h-screen bg-slate-50 flex flex-col justify-between">
       <Navbar />
 
-      <main className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
+      {/* Session loading */}
+      {sessionPending && (
+        <main className="flex flex-1 items-center justify-center text-sm text-slate-500">
+          Checking your session…
+        </main>
+      )}
+
+      {!sessionPending && user && (
+      <main className="mx-auto w-full max-w-5xl px-4 py-8 sm:px-6 lg:px-8">
         {/* Customer Profile Banner */}
-        <div className="relative mb-8 overflow-hidden rounded-3xl bg-gradient-to-r from-gray-950 via-gray-900 to-black p-6 sm:p-8 text-white shadow-xl">
-          <div className="absolute right-0 top-0 -mt-10 -mr-10 h-64 w-64 rounded-full bg-yellow-400/10 blur-3xl" />
+        <div className="relative mb-8 overflow-hidden rounded-3xl bg-gradient-to-r from-slate-800 via-slate-700 to-slate-900 p-6 sm:p-8 text-white shadow-xl">
+          <div className="absolute right-0 top-0 -mt-10 -mr-10 h-64 w-64 rounded-full bg-teal-400/10 blur-3xl" />
 
           <div className="relative flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-4 sm:gap-6">
               {/* Avatar */}
               <div className="relative">
-                <div className="flex h-16 w-16 sm:h-20 sm:w-20 items-center justify-center overflow-hidden rounded-full border-2 border-yellow-400 bg-gradient-to-tr from-yellow-400 to-amber-500 font-black text-black shadow-lg ring-4 ring-yellow-400/30">
+                <div className="flex h-16 w-16 sm:h-20 sm:w-20 items-center justify-center overflow-hidden rounded-full border-2 border-teal-400 bg-gradient-to-tr from-teal-400 to-cyan-500 font-black text-white shadow-lg ring-4 ring-teal-400/30">
                   {user?.image ? (
                     <img
                       src={user.image}
@@ -172,7 +188,7 @@ export default function AccountOrdersPage() {
             <button
               type="button"
               onClick={() => setProfileModalOpen(true)}
-              className="inline-flex items-center gap-2 rounded-2xl bg-white/10 px-5 py-2.5 text-xs font-bold text-white backdrop-blur-md transition hover:bg-yellow-400 hover:text-black"
+              className="inline-flex items-center gap-2 rounded-2xl bg-white/10 px-5 py-2.5 text-xs font-bold text-white backdrop-blur-md transition hover:bg-teal-500 hover:text-white"
             >
               <Sparkles size={16} />
               <span>Customize Avatar & Profile</span>
@@ -184,13 +200,13 @@ export default function AccountOrdersPage() {
             <div className="relative mt-8 grid grid-cols-2 gap-4 border-t border-white/10 pt-6 sm:grid-cols-3">
               <div>
                 <p className="text-xs text-gray-400">Total Orders Placed</p>
-                <p className="mt-1 text-xl font-black text-yellow-400">
+                <p className="mt-1 text-xl font-black text-teal-300">
                   {orders.length}
                 </p>
               </div>
               <div>
                 <p className="text-xs text-gray-400">Total Spent</p>
-                <p className="mt-1 text-xl font-black text-yellow-400">
+                <p className="mt-1 text-xl font-black text-teal-300">
                   GH₵ {totalSpent.toFixed(2)}
                 </p>
               </div>
@@ -401,7 +417,7 @@ export default function AccountOrdersPage() {
                     onClick={() => setStatusFilter(tab.value)}
                     className={`rounded-xl px-3 py-1.5 text-xs font-bold transition ${
                       statusFilter === tab.value
-                        ? "bg-yellow-400 text-black shadow-sm"
+                        ? "bg-slate-700 text-white shadow-sm"
                         : "text-gray-600 hover:text-black"
                     }`}
                   >
@@ -428,7 +444,7 @@ export default function AccountOrdersPage() {
                   <Link
                     key={item.id}
                     to={`/account/orders/${item.id}`}
-                    className="group block rounded-3xl border border-gray-200/80 bg-white p-5 sm:p-6 shadow-sm transition hover:border-yellow-400 hover:shadow-md"
+                    className="group block rounded-3xl border border-gray-200/80 bg-white p-5 sm:p-6 shadow-sm transition hover:border-teal-400 hover:shadow-md"
                   >
                     <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                       <div className="flex items-start gap-4">
@@ -513,9 +529,9 @@ export default function AccountOrdersPage() {
           </div>
         )}
       </main>
+      )} {/* end !sessionPending && user */}
 
       <Footer />
-
       {/* Profile & Avatar Customization Modal */}
       <ProfileModal
         isOpen={profileModalOpen}

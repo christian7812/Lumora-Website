@@ -66,10 +66,10 @@ export default function HomePage() {
         <ProductSection onAddToCart={addToCart} />
 
         {/* Creative Promotional Banner */}
-        <section className="bg-yellow-400 px-4 py-16 sm:px-6 lg:px-8">
-          <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-8 rounded-3xl bg-black px-6 py-12 text-white sm:px-12 md:flex-row">
+        <section className="bg-slate-100 px-4 py-16 sm:px-6 lg:px-8">
+          <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-8 rounded-3xl bg-gradient-to-br from-slate-800 to-slate-900 px-6 py-12 text-white sm:px-12 md:flex-row">
             <div className="max-w-xl text-center md:text-left">
-              <span className="inline-block rounded-full bg-yellow-400 px-3.5 py-1 text-xs font-black uppercase tracking-widest text-black">
+              <span className="inline-block rounded-full bg-teal-400/20 border border-teal-400/40 px-3.5 py-1 text-xs font-black uppercase tracking-widest text-teal-300">
                 Special Offer
               </span>
               <h3 className="mt-4 text-3xl font-black tracking-tight text-white sm:text-4xl">
@@ -82,7 +82,7 @@ export default function HomePage() {
 
             <Link
               to="/products"
-              className="inline-flex items-center gap-2 rounded-2xl bg-yellow-400 px-8 py-4 text-sm font-black text-black shadow-lg transition hover:bg-yellow-300 hover:scale-105"
+              className="inline-flex items-center gap-2 rounded-2xl bg-teal-500 px-8 py-4 text-sm font-black text-white shadow-lg transition hover:bg-teal-400 hover:scale-105"
             >
               <span>Start Shopping Now</span>
               <ArrowRight size={18} />

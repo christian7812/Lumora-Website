@@ -336,14 +336,14 @@ export default function OrderSuccessPage() {
         <div className="mt-8 flex w-full max-w-md flex-col gap-3 sm:flex-row sm:justify-center">
           <Link
             to="/account/orders"
-            className="flex items-center justify-center gap-2 rounded-2xl bg-black px-6 py-3.5 text-xs font-bold text-white shadow-md transition hover:bg-neutral-800"
+            className="flex items-center justify-center gap-2 rounded-2xl bg-slate-800 px-6 py-3.5 text-xs font-bold text-white shadow-md transition hover:bg-slate-700"
           >
             <ReceiptText size={16} />
             <span>View My Orders</span>
           </Link>
           <Link
             to="/products"
-            className="flex items-center justify-center gap-2 rounded-2xl bg-yellow-400 px-6 py-3.5 text-xs font-bold text-black shadow-md shadow-yellow-400/20 transition hover:bg-yellow-300"
+            className="flex items-center justify-center gap-2 rounded-2xl bg-teal-500 px-6 py-3.5 text-xs font-bold text-white shadow-md transition hover:bg-teal-400"
           >
             <ShoppingBag size={16} />
             <span>Continue Shopping</span>
