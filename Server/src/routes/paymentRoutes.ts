@@ -41,6 +41,13 @@ paymentRouter.post("/initialize", async (req: Request, res: Response) => {
     return;
   }
 
+  if (!PAYSTACK_SECRET_KEY) {
+    res.status(503).json({
+      message: "Paystack is not configured. Please try again later.",
+    });
+    return;
+  }
+
   const { orderId, email, callbackUrl } = parsed.data;
 
   try {
@@ -93,7 +100,11 @@ paymentRouter.post("/initialize", async (req: Request, res: Response) => {
 
       const data = await paystackResponse.json().catch(() => ({}));
 
-      if (!paystackResponse.ok || !data.status) {
+      if (
+        !paystackResponse.ok ||
+        !data.status ||
+        typeof data.data?.authorization_url !== "string"
+      ) {
         console.error("Paystack initialization failed:", data);
         res.status(502).json({
           message:
@@ -160,6 +171,13 @@ paymentRouter.post("/verify", async (req: Request, res: Response) => {
   }
 
   const { reference, orderId } = parsed.data;
+
+  if (!PAYSTACK_SECRET_KEY) {
+    res.status(503).json({
+      message: "Paystack is not configured. Payment cannot be verified.",
+    });
+    return;
+  }
 
   try {
     let isSuccess = false;

@@ -82,6 +82,19 @@ export default function CheckoutPage() {
     try {
       const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
+      if (form.paymentMethod === "paystack") {
+        const configResponse = await fetch(`${apiUrl}/api/payments/config`);
+        const config: { isConfigured?: boolean } = await configResponse
+          .json()
+          .catch(() => ({}));
+
+        if (!configResponse.ok || !config.isConfigured) {
+          throw new Error(
+            "Paystack is not configured right now. Choose Cash on Delivery or try again later.",
+          );
+        }
+      }
+
       // 1. Create the order in the database
       const response = await fetch(`${apiUrl}/api/orders`, {
         method: "POST",
@@ -118,12 +131,16 @@ export default function CheckoutPage() {
         const initData: {
           status?: string;
           reference?: string;
-          authorization_url?: string | null;
+          authorization_url?: string;
           isSandbox?: boolean;
           message?: string;
         } = await initRes.json().catch(() => ({}));
 
-        if (!initRes.ok || !initData.reference) {
+        if (
+          !initRes.ok ||
+          !initData.reference ||
+          !initData.authorization_url
+        ) {
           throw new Error(initData.message || "Failed to initialize payment.");
         }
 
