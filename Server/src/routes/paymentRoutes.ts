@@ -402,6 +402,7 @@ paymentRouter.post("/verify", async (req: Request, res: Response) => {
       customerEmail: result.order.email,
       paymentMethod: result.order.paymentMethod,
       createdAt: result.order.createdAt,
+      paidAt: transaction.paid_at,
     });
   } catch (error) {
     if (error instanceof PaymentProcessingError) {

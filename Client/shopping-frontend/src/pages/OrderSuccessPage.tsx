@@ -1,26 +1,25 @@
 import { useEffect, useState } from "react";
-import { useLocation, useSearchParams } from "react-router-dom";
+import { Link, useLocation, useSearchParams } from "react-router-dom";
 import {
+  ArrowLeft,
   Check,
+  Clock3,
   PackageCheck,
-  ShieldCheck,
-  Clock,
-  Truck,
-  Copy,
-  CheckCheck,
-  RotateCcw,
-  ShoppingBag,
   ReceiptText,
+  RotateCcw,
+  ShieldCheck,
+  ShoppingBag,
 } from "lucide-react";
 import Navbar from "../components/layout/Navbar";
 import Footer from "../components/layout/Footer";
-import { useCart } from "../contexts/CartContext";
+import { API_URL } from "../lib/constants";
 
 interface OrderConfirmation {
   orderId?: string;
   total?: string | number;
   paymentMethod?: string;
   paymentReference?: string;
+  reference?: string;
   paymentStatus?: "unpaid" | "paid" | "refunded";
   customerName?: string;
 }
@@ -32,324 +31,270 @@ interface PaymentVerification {
   reference?: string;
   paymentStatus?: "unpaid" | "paid" | "refunded";
   total?: string | number;
-  customerName?: string;
-  customerEmail?: string;
   paymentMethod?: string;
+  paidAt?: string;
+}
+
+function formatPaymentDate(value?: string) {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return new Intl.DateTimeFormat(undefined, {
+    dateStyle: "long",
+    timeStyle: "short",
+  }).format(date);
 }
 
 export default function OrderSuccessPage() {
   const location = useLocation();
   const [searchParams] = useSearchParams();
-  const { clearCart } = useCart();
-
   const confirmation = location.state as OrderConfirmation | null;
   const reference =
-    searchParams.get("reference") || searchParams.get("trxref");
-  const callbackOrderId = searchParams.get("orderId");
+    searchParams.get("reference") ||
+    searchParams.get("trxref") ||
+    confirmation?.paymentReference ||
+    confirmation?.reference;
+  const callbackOrderId =
+    searchParams.get("orderId") || confirmation?.orderId;
 
   const [verifiedPayment, setVerifiedPayment] =
     useState<PaymentVerification | null>(null);
-  const [isVerifyingPayment, setIsVerifyingPayment] = useState(Boolean(reference));
   const [verificationError, setVerificationError] = useState("");
-  const [copiedOrderId, setCopiedOrderId] = useState(false);
-  const [copiedRef, setCopiedRef] = useState(false);
-
-  // Automatically clear cart once an order has been successfully placed or reached this page
-  useEffect(() => {
-    clearCart();
-  }, [clearCart]);
-
-  const verifyPayment = (ref: string, ordId?: string | null) => {
-    setIsVerifyingPayment(true);
-    setVerificationError("");
-
-    const apiUrl = import.meta.env.VITE_API_URL || "https://lumora-server-kwev.onrender.com";
-
-    fetch(`${apiUrl}/api/payments/verify`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        reference: ref,
-        ...(ordId ? { orderId: ordId } : {}),
-      }),
-    })
-      .then(async (response) => {
-        const result: PaymentVerification = await response
-          .json()
-          .catch(() => ({}));
-        if (!response.ok || !result.success || result.paymentStatus !== "paid") {
-          throw new Error(result.message || "Could not verify your payment with Paystack.");
-        }
-        setVerifiedPayment(result);
-      })
-      .catch((error: unknown) => {
-        setVerificationError(
-          error instanceof Error
-            ? error.message
-            : "Could not verify your payment.",
-        );
-      })
-      .finally(() => {
-        setIsVerifyingPayment(false);
-      });
-  };
+  const [verificationAttempt, setVerificationAttempt] = useState(0);
 
   useEffect(() => {
     if (!reference) return;
-    verifyPayment(reference, callbackOrderId);
-  }, [reference, callbackOrderId]);
+
+    const controller = new AbortController();
+    async function verifyPayment() {
+      try {
+        const response = await fetch(`${API_URL}/api/payments/verify`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            reference,
+            ...(callbackOrderId ? { orderId: callbackOrderId } : {}),
+          }),
+          signal: controller.signal,
+        });
+        const result: PaymentVerification = await response
+          .json()
+          .catch(() => ({}));
+
+        if (
+          !response.ok ||
+          result.success !== true ||
+          result.paymentStatus !== "paid"
+        ) {
+          throw new Error(
+            result.message || "We couldn't confirm this payment yet.",
+          );
+        }
+
+        setVerifiedPayment(result);
+        setVerificationError("");
+      } catch (error: unknown) {
+        if (controller.signal.aborted) return;
+        setVerificationError(
+          error instanceof Error
+            ? error.message
+            : "We couldn't confirm this payment yet.",
+        );
+      }
+    }
+
+    void verifyPayment();
+    return () => controller.abort();
+  }, [callbackOrderId, reference, verificationAttempt]);
 
   const isPaid =
-    confirmation?.paymentStatus === "paid" ||
-    verifiedPayment?.paymentStatus === "paid";
-
-  const isCod =
+    verifiedPayment?.success === true &&
+    verifiedPayment.paymentStatus === "paid";
+  const isVerifying = Boolean(reference) && !isPaid && !verificationError;
+  const isCashOnDelivery =
     confirmation?.paymentMethod?.toLowerCase().replaceAll(" ", "_") ===
     "cash_on_delivery";
+  const orderId = verifiedPayment?.orderId || callbackOrderId;
+  const amount = verifiedPayment?.total ?? confirmation?.total;
+  const paymentDate = formatPaymentDate(verifiedPayment?.paidAt);
 
-  const orderId =
-    verifiedPayment?.orderId || confirmation?.orderId || callbackOrderId;
-
-  const paymentReference =
-    verifiedPayment?.reference || confirmation?.paymentReference || reference;
-
-  const total = verifiedPayment?.total ?? confirmation?.total;
-
-  const copyText = (text: string, type: "order" | "ref") => {
-    if (!navigator?.clipboard) return;
-    navigator.clipboard.writeText(text);
-    if (type === "order") {
-      setCopiedOrderId(true);
-      setTimeout(() => setCopiedOrderId(false), 2000);
-    } else {
-      setCopiedRef(true);
-      setTimeout(() => setCopiedRef(false), 2000);
-    }
-  };
+  function retryVerification() {
+    setVerificationError("");
+    setVerifiedPayment(null);
+    setVerificationAttempt((attempt) => attempt + 1);
+  }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col justify-between">
+    <div className="flex min-h-screen flex-col bg-[#f7f8f6] text-slate-900">
       <Navbar />
 
-      <main className="mx-auto flex max-w-3xl flex-col items-center px-4 py-12 text-center sm:px-6 lg:py-16 flex-1">
-        {/* Animated Celebration Icon */}
-        <div className="relative mb-6 flex h-24 w-24 items-center justify-center rounded-3xl bg-emerald-100 text-emerald-700 shadow-md ring-8 ring-emerald-50">
-          <PackageCheck size={48} strokeWidth={1.8} className="animate-in zoom-in duration-300" />
-          <span className="absolute -right-2 -top-2 flex h-9 w-9 items-center justify-center rounded-full border-4 border-gray-50 bg-emerald-600 text-white shadow">
-            <Check size={18} strokeWidth={3} />
-          </span>
-        </div>
-
-        <p className="text-xs font-bold uppercase tracking-widest text-yellow-600">
-          Lumora Store GH
-        </p>
-        <h1 className="mt-2 text-3xl font-black tracking-tight text-gray-900 sm:text-4xl">
-          Thank you for your order!
-        </h1>
-
-        {/* Verification in Progress State */}
-        {isVerifyingPayment && (
-          <div className="mt-4 flex items-center justify-center gap-2 rounded-2xl bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-900 border border-amber-200 animate-pulse">
-            <Clock size={18} className="animate-spin text-amber-600" />
-            <span>Detecting and verifying your payment with Paystack…</span>
-          </div>
-        )}
-
-        {/* Verification Error with Retry */}
-        {verificationError && (
-          <div className="mt-4 w-full max-w-lg rounded-2xl border border-red-200 bg-red-50 p-4 text-left shadow-sm">
-            <p className="text-xs font-bold uppercase tracking-wider text-red-600">
-              Payment Verification Notice
-            </p>
-            <p className="mt-1 text-sm font-medium text-red-900">
-              {verificationError}
-            </p>
-            {reference && (
-              <button
-                type="button"
-                onClick={() => verifyPayment(reference, callbackOrderId)}
-                className="mt-3 inline-flex items-center gap-1.5 rounded-xl bg-red-600 px-3.5 py-1.5 text-xs font-bold text-white shadow-sm transition hover:bg-red-700"
-              >
-                <RotateCcw size={14} />
-                <span>Retry Payment Verification</span>
-              </button>
-            )}
-          </div>
-        )}
-
-        {/* Status Callout */}
-        {isPaid ? (
-          <div className="mt-4 max-w-xl space-y-2">
-            <div className="inline-flex items-center gap-2 rounded-full bg-emerald-100 px-4 py-1.5 text-xs font-black uppercase tracking-wider text-emerald-800 border border-emerald-300 shadow-sm">
-              <ShieldCheck size={16} className="text-emerald-700" />
-              <span>Payment Detected & Confirmed Paid</span>
-            </div>
-            <p className="text-sm text-gray-600">
-              Your payment has been successfully recorded. Our fulfillment team has received your order and is preparing it for dispatch.
-            </p>
-          </div>
-        ) : isCod ? (
-          <div className="mt-4 max-w-xl space-y-2">
-            <div className="inline-flex items-center gap-2 rounded-full bg-amber-100 px-4 py-1.5 text-xs font-black uppercase tracking-wider text-amber-800 border border-amber-300 shadow-sm">
-              <Clock size={16} className="text-amber-700" />
-              <span>Cash on Delivery Placed</span>
-            </div>
-            <p className="text-sm text-gray-600">
-              Your order has been placed. Our courier will call you before delivery to confirm your location. Please have the exact cash amount ready upon delivery.
-            </p>
-          </div>
-        ) : (
-          !isVerifyingPayment && (
-            <p className="mt-4 max-w-xl text-sm text-gray-600">
-              Your order has been received. We’ll prepare it for delivery and contact you with updates.
-            </p>
-          )
-        )}
-
-        {/* Quick Highlights Strip */}
-        <div className="mt-8 grid w-full max-w-lg grid-cols-2 gap-3 text-left">
-          <div className="flex items-center gap-3 rounded-2xl border border-gray-200/80 bg-white p-3.5 shadow-sm">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-yellow-50 text-yellow-700">
-              <Truck size={20} />
-            </div>
-            <div>
-              <p className="text-xs font-bold text-gray-900">Fast Delivery</p>
-              <p className="text-[11px] text-gray-500">24 – 48 Hours Across Ghana</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-3 rounded-2xl border border-gray-200/80 bg-white p-3.5 shadow-sm">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700">
-              <ShieldCheck size={20} />
-            </div>
-            <div>
-              <p className="text-xs font-bold text-gray-900">Buyer Protection</p>
-              <p className="text-[11px] text-gray-500">100% Genuine Guaranteed</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Order Details Card */}
-        {orderId && (
-          <section
-            aria-label="Order details"
-            className="mt-6 w-full max-w-xl rounded-3xl border border-gray-200/80 bg-white p-6 text-left shadow-md sm:p-8"
+      <main className="flex flex-1 items-center justify-center px-4 py-12 sm:px-6 lg:py-16">
+        <div className="w-full max-w-2xl">
+          <Link
+            to="/products"
+            className="mb-6 inline-flex items-center gap-2 text-sm font-medium text-slate-500 transition-colors hover:text-slate-900"
           >
-            <div className="flex items-center justify-between border-b border-gray-100 pb-4">
-              <h2 className="text-lg font-black text-gray-900">Order Summary</h2>
-              <span
-                className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-black uppercase tracking-wider ${
-                  isPaid
-                    ? "bg-emerald-500/15 text-emerald-700 border border-emerald-300"
-                    : "bg-amber-500/15 text-amber-700 border border-amber-300"
-                }`}
-              >
-                <span
-                  className={`h-2 w-2 rounded-full ${
-                    isPaid ? "bg-emerald-600 animate-pulse" : "bg-amber-600"
-                  }`}
-                />
-                {isPaid ? "Paid" : "Pending Payment"}
-              </span>
-            </div>
+            <ArrowLeft size={16} />
+            Back to store
+          </Link>
 
-            <dl className="mt-5 space-y-4 text-sm">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <dt className="text-gray-500 font-medium">Order ID</dt>
-                <dd className="flex items-center gap-2">
-                  <span className="break-all font-mono font-bold text-gray-900 text-xs sm:text-sm">
-                    {orderId}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => copyText(orderId, "order")}
-                    title="Copy Order ID"
-                    className="rounded-md p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700"
-                  >
-                    {copiedOrderId ? (
-                      <CheckCheck size={14} className="text-emerald-600" />
-                    ) : (
-                      <Copy size={14} />
-                    )}
-                  </button>
-                </dd>
+          <section className="overflow-hidden rounded-[2rem] border border-slate-200/80 bg-white shadow-[0_24px_70px_-36px_rgba(15,23,42,0.28)]">
+            <div className="px-6 pb-8 pt-10 text-center sm:px-12 sm:pb-10 sm:pt-14">
+              <div
+                className={`mx-auto mb-7 flex h-20 w-20 items-center justify-center rounded-full ${
+                  isPaid
+                    ? "success-checkmark bg-emerald-50 text-emerald-700 ring-8 ring-emerald-50/70"
+                    : isVerifying
+                      ? "bg-slate-50 text-slate-400 ring-8 ring-slate-50"
+                      : "bg-amber-50 text-amber-700 ring-8 ring-amber-50/70"
+                }`}
+                aria-hidden="true"
+              >
+                {isPaid ? (
+                  <Check size={42} strokeWidth={2.2} />
+                ) : isVerifying ? (
+                  <Clock3 size={36} strokeWidth={1.7} />
+                ) : (
+                  <PackageCheck size={36} strokeWidth={1.7} />
+                )}
               </div>
 
-              {paymentReference && (
-                <div className="flex flex-wrap items-center justify-between gap-2 border-t border-gray-100 pt-3">
-                  <dt className="text-gray-500 font-medium">Payment Reference</dt>
-                  <dd className="flex items-center gap-2">
-                    <span className="break-all font-mono text-xs text-gray-700">
-                      {paymentReference}
-                    </span>
+              <p className="text-xs font-bold uppercase tracking-[0.2em] text-emerald-700">
+                Lumora · Order update
+              </p>
+              <h1 className="mt-3 text-3xl font-semibold tracking-tight text-slate-900 sm:text-4xl">
+                {isPaid
+                  ? "Payment Successful!"
+                  : isVerifying
+                    ? "Confirming your payment"
+                    : isCashOnDelivery
+                      ? "Order Confirmed"
+                      : "Payment not confirmed"}
+              </h1>
+
+              {isPaid ? (
+                <p className="mx-auto mt-4 max-w-md text-base leading-7 text-slate-600">
+                  Your payment has been received successfully. Thank you for
+                  shopping with Lumora!
+                </p>
+              ) : isVerifying ? (
+                <p className="mx-auto mt-4 max-w-md text-sm leading-6 text-slate-600">
+                  We’re securely checking your payment with Paystack. This
+                  usually takes just a moment.
+                </p>
+              ) : isCashOnDelivery ? (
+                <p className="mx-auto mt-4 max-w-md text-sm leading-6 text-slate-600">
+                  Your order is confirmed. Payment will be collected when your
+                  order is delivered.
+                </p>
+              ) : (
+                <div className="mx-auto mt-4 max-w-md">
+                  <p role="alert" className="text-sm leading-6 text-rose-700">
+                    {verificationError ||
+                      "No verified payment details were returned. Your order has not been marked as paid."}
+                  </p>
+                  {reference && (
                     <button
                       type="button"
-                      onClick={() => copyText(paymentReference, "ref")}
-                      title="Copy Reference"
-                      className="rounded-md p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700"
+                      onClick={retryVerification}
+                      className="mt-4 inline-flex items-center gap-2 rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-700 transition-colors hover:border-slate-300 hover:bg-slate-50"
                     >
-                      {copiedRef ? (
-                        <CheckCheck size={14} className="text-emerald-600" />
-                      ) : (
-                        <Copy size={14} />
-                      )}
+                      <RotateCcw size={15} />
+                      Try verification again
                     </button>
-                  </dd>
+                  )}
                 </div>
               )}
+            </div>
 
-              {total !== undefined && total !== "" && (
-                <div className="flex justify-between gap-2 border-t border-gray-100 pt-3">
-                  <dt className="text-gray-500 font-medium">
-                    {isPaid ? "Total Paid" : "Order Total"}
-                  </dt>
-                  <dd className="text-base font-black text-gray-900">
-                    GH₵ {Number(total).toFixed(2)}
-                  </dd>
+            {orderId && (
+              <div className="mx-5 mb-5 rounded-2xl border border-slate-200 bg-slate-50/70 p-5 sm:mx-8 sm:p-7">
+                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-4">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                      Order number
+                    </p>
+                    <p className="mt-1 break-all font-mono text-sm font-semibold text-slate-800">
+                      {orderId}
+                    </p>
+                  </div>
+                  <span
+                    className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold tracking-wide ${
+                      isPaid
+                        ? "bg-emerald-100 text-emerald-800"
+                        : "bg-amber-100 text-amber-800"
+                    }`}
+                  >
+                    {isPaid ? <Check size={14} /> : <Clock3 size={14} />}
+                    {isPaid ? "PAID" : "PAYMENT PENDING"}
+                  </span>
                 </div>
-              )}
 
-              {(confirmation?.paymentMethod || verifiedPayment) && (
-                <div className="flex justify-between gap-2 border-t border-gray-100 pt-3">
-                  <dt className="text-gray-500 font-medium">Payment Channel</dt>
-                  <dd className="font-semibold text-gray-900">
-                    {verifiedPayment ||
-                    confirmation?.paymentMethod === "paystack" ||
-                    confirmation?.paymentMethod?.startsWith("paystack")
-                      ? "Paystack (MoMo / Card)"
-                      : confirmation?.paymentMethod === "cash_on_delivery"
-                      ? "Cash on Delivery"
-                      : confirmation?.paymentMethod?.replace("_", " ")}
-                  </dd>
-                </div>
+                <dl className="mt-1 divide-y divide-slate-200">
+                  <div className="flex items-center justify-between gap-4 py-4">
+                    <dt className="text-sm text-slate-500">
+                      {isPaid ? "Amount paid" : "Order amount"}
+                    </dt>
+                    <dd className="text-lg font-semibold tabular-nums text-slate-900">
+                      {amount !== undefined
+                        ? `GH₵ ${Number(amount).toFixed(2)}`
+                        : "—"}
+                    </dd>
+                  </div>
+                  <div className="flex items-center justify-between gap-4 py-4">
+                    <dt className="text-sm text-slate-500">Payment method</dt>
+                    <dd className="text-sm font-semibold text-slate-800">
+                      {isPaid
+                        ? "Paystack"
+                        : isCashOnDelivery
+                          ? "Cash on Delivery"
+                          : "Paystack"}
+                    </dd>
+                  </div>
+                  <div className="flex items-center justify-between gap-4 py-4">
+                    <dt className="text-sm text-slate-500">Payment status</dt>
+                    <dd
+                      className={`text-sm font-bold ${
+                        isPaid ? "text-emerald-700" : "text-amber-700"
+                      }`}
+                    >
+                      {isPaid ? "PAID" : "PENDING"}
+                    </dd>
+                  </div>
+                  <div className="flex items-center justify-between gap-4 py-4">
+                    <dt className="text-sm text-slate-500">Date and time</dt>
+                    <dd className="text-right text-sm font-medium text-slate-800">
+                      {paymentDate || "Available after payment verification"}
+                    </dd>
+                  </div>
+                </dl>
+              </div>
+            )}
+
+            <div className="flex flex-col gap-3 px-5 pb-7 sm:flex-row sm:justify-center sm:px-8 sm:pb-9">
+              {orderId && (
+                <Link
+                  to={`/account/orders/${encodeURIComponent(orderId)}`}
+                  className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-slate-900 px-6 py-3 text-sm font-semibold text-white shadow-sm transition-all hover:bg-slate-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900"
+                >
+                  <ReceiptText size={17} />
+                  View My Order
+                </Link>
               )}
-            </dl>
+              <Link
+                to="/products"
+                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-6 py-3 text-sm font-semibold text-slate-700 transition-all hover:border-emerald-200 hover:bg-emerald-50/60 hover:text-emerald-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700"
+              >
+                <ShoppingBag size={17} />
+                Continue Shopping
+              </Link>
+            </div>
+
+            <div className="flex items-center justify-center gap-2 border-t border-slate-100 px-5 py-4 text-xs text-slate-500">
+              <ShieldCheck size={15} className="text-emerald-700" />
+              Secure payment verification by Paystack
+            </div>
           </section>
-        )}
-
-        {!orderId && !isVerifyingPayment && (
-          <p className="mt-6 rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-900 border border-amber-200">
-            Order submitted successfully. Check your account orders page for tracking.
-          </p>
-        )}
-
-        {/* Action Buttons */}
-        <div className="mt-8 flex w-full max-w-md flex-col gap-3 sm:flex-row sm:justify-center">
-          <button
-            type="button"
-            onClick={() => window.location.assign("/account/orders")}
-            className="flex items-center justify-center gap-2 rounded-2xl bg-slate-800 px-6 py-3.5 text-xs font-bold text-white shadow-md transition hover:bg-slate-700"
-          >
-            <ReceiptText size={16} />
-            <span>View My Orders</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => window.location.assign("/products")}
-            className="flex items-center justify-center gap-2 rounded-2xl bg-teal-500 px-6 py-3.5 text-xs font-bold text-white shadow-md transition hover:bg-teal-400"
-          >
-            <ShoppingBag size={16} />
-            <span>Continue Shopping</span>
-          </button>
         </div>
       </main>
 
