@@ -1,4 +1,4 @@
-import { boolean, check, index, integer, numeric, pgTable, serial, text, timestamp, uuid,} from "drizzle-orm/pg-core";
+import { boolean, check, index, integer, numeric, pgTable, serial, text, timestamp, uniqueIndex, uuid,} from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { sql } from "drizzle-orm";
 
@@ -124,31 +124,36 @@ export const products = pgTable(
   ],
 );
 
-export const orders = pgTable("orders", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  userId: text("user_id").references(() => user.id, { onDelete: "set null" }),
-  fullName: text("full_name").notNull(),
-  email: text("email").notNull(),
-  phone: text("phone").notNull(),
-  address: text("address").notNull(),
-  city: text("city").notNull(),
-  region: text("region").notNull(),
-  paymentMethod: text("payment_method").notNull(),
-  subtotal: numeric("subtotal", { precision: 10, scale: 2 }).notNull(),
-  shipping: numeric("shipping", { precision: 10, scale: 2 }).notNull(),
-  total: numeric("total", { precision: 10, scale: 2 }).notNull(),
-  status: text("status").notNull().default("pending"),
-  paymentStatus: text("payment_status").notNull().default("unpaid"),
-  paymentReference: text("payment_reference"),
-  stockDeducted: boolean("stock_deducted").notNull().default(false),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-}, (table) => [
-  index("orders_user_id_created_at_idx").on(table.userId, table.createdAt),
-  check(
-    "orders_payment_status_valid",
-    sql`${table.paymentStatus} IN ('unpaid', 'paid', 'refunded')`,
-  ),
-]);
+export const orders = pgTable(
+  "orders",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: text("user_id").references(() => user.id, { onDelete: "set null" }),
+    fullName: text("full_name").notNull(),
+    email: text("email").notNull(),
+    phone: text("phone").notNull(),
+    address: text("address").notNull(),
+    city: text("city").notNull(),
+    region: text("region").notNull(),
+    paymentMethod: text("payment_method").notNull(),
+    subtotal: numeric("subtotal", { precision: 10, scale: 2 }).notNull(),
+    shipping: numeric("shipping", { precision: 10, scale: 2 }).notNull(),
+    total: numeric("total", { precision: 10, scale: 2 }).notNull(),
+    status: text("status").notNull().default("pending"),
+    paymentStatus: text("payment_status").notNull().default("unpaid"),
+    paymentReference: text("payment_reference"),
+    stockDeducted: boolean("stock_deducted").notNull().default(false),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("orders_user_id_created_at_idx").on(table.userId, table.createdAt),
+    uniqueIndex("orders_payment_reference_unique_idx").on(table.paymentReference),
+    check(
+      "orders_payment_status_valid",
+      sql`${table.paymentStatus} IN ('unpaid', 'paid', 'refunded')`,
+    ),
+  ],
+);
 
 export const orderItems = pgTable("order_items", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -160,6 +165,32 @@ export const orderItems = pgTable("order_items", {
   quantity: integer("quantity").notNull(),
   price: numeric("price", { precision: 10, scale: 2 }).notNull(),
 });
+
+export const telegramNotifications = pgTable(
+  "telegram_notifications",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    eventKey: text("event_key").notNull().unique(),
+    message: text("message").notNull(),
+    status: text("status").notNull().default("pending"),
+    attempts: integer("attempts").notNull().default(0),
+    nextAttemptAt: timestamp("next_attempt_at").defaultNow().notNull(),
+    lockedAt: timestamp("locked_at"),
+    processedAt: timestamp("processed_at"),
+    lastError: text("last_error"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("telegram_notifications_pending_idx").on(
+      table.status,
+      table.nextAttemptAt,
+    ),
+    check(
+      "telegram_notifications_status_valid",
+      sql`${table.status} IN ('pending', 'processing', 'sent')`,
+    ),
+  ],
+);
 
 export const contactMessages = pgTable(
   "contact_messages",

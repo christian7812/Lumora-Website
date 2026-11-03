@@ -24,6 +24,7 @@ import paymentRouter from "./routes/paymentRoutes.js";
 import {
   generalArcjetMiddleware,
 } from "./lib/arcjet.js";
+import { startTelegramNotificationWorker } from "./services/telegram.service.js";
 
 const app = express();
 const port = Number(process.env.PORT ?? 8000);
@@ -82,6 +83,10 @@ app.get("/api/health", async (_req, res) => {
   }
 });
 
+app.use(
+  "/api/payments/webhook",
+  express.raw({ type: "application/json", limit: "1mb" }),
+);
 app.use(express.json());
 app.use("/api/auth", authRouter);
 app.use("/api/payments", paymentRouter);
@@ -97,4 +102,5 @@ app.use("/api/dashboard", dashboardRouter);
 app.listen(port, () => {
   console.log(`Server listening on port ${port}`);
   console.log(`CORS allowed origins: ${configuredOrigins.join(", ")}`);
+  startTelegramNotificationWorker();
 });

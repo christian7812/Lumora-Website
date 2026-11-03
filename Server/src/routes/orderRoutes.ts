@@ -1,12 +1,18 @@
 import { Router } from "express";
 import { db } from "../db/db.js";
-import { orderItems, orders, products } from "../schema/schema.js";
+import {
+  orderItems,
+  orders,
+  products,
+  telegramNotifications,
+} from "../schema/schema.js";
 import { z } from "zod";
 import { fromNodeHeaders } from "better-auth/node";
 import { count, desc, eq, inArray, asc, sql } from "drizzle-orm";
 import { requireAdmin } from "../lib/requireAdmin.js";
 import { auth } from "../lib/auth.js";
 import { orderArcjetMiddleware } from "../lib/arcjet.js";
+import { newOrderMessage } from "../services/telegram.service.js";
 
 const orderRouter = Router();
 
@@ -375,17 +381,34 @@ orderRouter.post("/", orderArcjetMiddleware, async (req, res) => {
           paymentStatus: "unpaid",
           stockDeducted: true,
         })
-        .returning({ id: orders.id });
+        .returning();
 
-      await tx.insert(orderItems).values(
-        trustedItems.map((item) => ({
-          orderId: order.id,
-          productId: item.productId,
-          productName: item.productName,
-          quantity: item.quantity,
-          price: (item.priceCents / 100).toFixed(2),
-        })),
-      );
+      const savedItems = await tx
+        .insert(orderItems)
+        .values(
+          trustedItems.map((item) => ({
+            orderId: order.id,
+            productId: item.productId,
+            productName: item.productName,
+            quantity: item.quantity,
+            price: (item.priceCents / 100).toFixed(2),
+          })),
+        )
+        .returning({
+          productName: orderItems.productName,
+          quantity: orderItems.quantity,
+          price: orderItems.price,
+        });
+
+      await tx
+        .insert(telegramNotifications)
+        .values({
+          eventKey: `new-order:${order.id}`,
+          message: newOrderMessage(order, savedItems),
+        })
+        .onConflictDoNothing({
+          target: telegramNotifications.eventKey,
+        });
 
       return {
         kind: "created" as const,

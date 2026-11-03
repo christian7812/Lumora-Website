@@ -1,14 +1,60 @@
-import { createHmac } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import { Router, type Request, type Response } from "express";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "../db/db.js";
-import { orders } from "../schema/schema.js";
+import { orders, telegramNotifications } from "../schema/schema.js";
+import {
+  failedPaymentMessage,
+  successfulPaymentMessage,
+} from "../services/telegram.service.js";
+import {
+  isValidPaystackSignature,
+  matchesOrderAmountAndCurrency,
+} from "../services/paystack.service.js";
 
 const paymentRouter = Router();
 
 const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY?.trim() || "";
 const PAYSTACK_PUBLIC_KEY = process.env.PAYSTACK_PUBLIC_KEY?.trim() || "";
+
+const paystackTransactionSchema = z.object({
+  status: z.boolean(),
+  message: z.string().optional(),
+  data: z
+    .object({
+      status: z.string(),
+      reference: z.string(),
+      amount: z.number().int().nonnegative(),
+      currency: z.string(),
+      channel: z.string().optional(),
+      paid_at: z.string().optional(),
+      metadata: z
+        .object({ orderId: z.string().optional() })
+        .passthrough()
+        .optional(),
+    })
+    .passthrough(),
+});
+
+const webhookSchema = z.object({
+  event: z.string(),
+  data: z.object({
+    reference: z.string(),
+  }).passthrough(),
+});
+
+type PaystackTransaction = z.infer<typeof paystackTransactionSchema>["data"];
+
+class PaymentProcessingError extends Error {
+  constructor(
+    message: string,
+    readonly statusCode: number,
+  ) {
+    super(message);
+    this.name = "PaymentProcessingError";
+  }
+}
 
 /**
  * Returns Paystack public credentials for the client.
@@ -51,7 +97,6 @@ paymentRouter.post("/initialize", async (req: Request, res: Response) => {
   const { orderId, email, callbackUrl } = parsed.data;
 
   try {
-    // 1. Fetch order details from database
     const [order] = await db
       .select()
       .from(orders)
@@ -63,104 +108,259 @@ paymentRouter.post("/initialize", async (req: Request, res: Response) => {
       return;
     }
 
-    if (order.paymentStatus === "paid") {
-      res.status(400).json({ message: "This order has already been paid." });
+    if (order.email.trim().toLowerCase() !== email.toLowerCase()) {
+      res.status(403).json({ message: "The email does not match this order." });
       return;
     }
 
-    // Amount in pesewas (1 GHS = 100 pesewas)
-    const amountInPesewas = Math.round(Number(order.total) * 100);
-    const reference = `LMR_${order.id.slice(0, 8)}_${Date.now()}`;
-
-    // 2. Call Paystack API if secret key is present
-    if (PAYSTACK_SECRET_KEY) {
-      const paystackResponse = await fetch(
-        "https://api.paystack.co/transaction/initialize",
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${PAYSTACK_SECRET_KEY}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            email,
-            amount: amountInPesewas,
-            currency: "GHS",
-            reference,
-            callback_url: callbackUrl,
-            metadata: {
-              orderId: order.id,
-              customerName: order.fullName,
-              phone: order.phone,
-            },
-            channels: ["mobile_money", "card"],
-          }),
-        },
-      );
-
-      const data = await paystackResponse.json().catch(() => ({}));
-
-      if (
-        !paystackResponse.ok ||
-        !data.status ||
-        typeof data.data?.authorization_url !== "string"
-      ) {
-        console.error("Paystack initialization failed:", data);
-        res.status(502).json({
-          message:
-            data.message || "Failed to initialize payment gateway with Paystack.",
-        });
-        return;
-      }
-
-      // Save payment reference on order
-      await db
-        .update(orders)
-        .set({ paymentReference: reference, paymentMethod: "paystack" })
-        .where(eq(orders.id, order.id));
-
-      res.json({
-        status: "success",
-        authorization_url: data.data.authorization_url,
-        access_code: data.data.access_code,
-        reference,
-        amount: Number(order.total),
-        currency: "GHS",
-        isSandbox: false,
+    if (order.paymentStatus !== "unpaid" || order.status === "cancelled") {
+      res.status(409).json({
+        message: "This order is not available for payment.",
       });
       return;
     }
 
-    // 3. Graceful Sandbox Simulation when PAYSTACK_SECRET_KEY is not yet set
-    await db
+    const amountInPesewas = Math.round(Number(order.total) * 100);
+    const reference = `LMR_${randomUUID()}`;
+    const paystackResponse = await fetch(
+      "https://api.paystack.co/transaction/initialize",
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${PAYSTACK_SECRET_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email: order.email,
+          amount: amountInPesewas,
+          currency: "GHS",
+          reference,
+          callback_url: callbackUrl,
+          metadata: {
+            orderId: order.id,
+            customerName: order.fullName,
+            phone: order.phone,
+          },
+          channels: ["mobile_money", "card"],
+        }),
+        signal: AbortSignal.timeout(15_000),
+      },
+    );
+
+    const responseBody: unknown = await paystackResponse
+      .json()
+      .catch(() => undefined);
+    const result = z
+      .object({
+        status: z.boolean(),
+        message: z.string().optional(),
+        data: z.object({
+          authorization_url: z.string().url(),
+          access_code: z.string().optional(),
+        }).passthrough(),
+      })
+      .safeParse(responseBody);
+
+    if (!paystackResponse.ok || !result.success || !result.data.status) {
+      console.error("Paystack transaction initialization was rejected.");
+      res.status(502).json({
+        message: "Failed to initialize payment with Paystack.",
+      });
+      return;
+    }
+
+    const [updatedOrder] = await db
       .update(orders)
-      .set({ paymentReference: reference, paymentMethod: "paystack (sandbox)" })
-      .where(eq(orders.id, order.id));
+      .set({ paymentReference: reference, paymentMethod: "paystack" })
+      .where(
+        and(eq(orders.id, order.id), eq(orders.paymentStatus, "unpaid")),
+      )
+      .returning({ id: orders.id });
+
+    if (!updatedOrder) {
+      res.status(409).json({
+        message: "The order changed while payment was being initialized.",
+      });
+      return;
+    }
 
     res.json({
       status: "success",
-      authorization_url: null,
-      access_code: null,
+      authorization_url: result.data.data.authorization_url,
+      access_code: result.data.data.access_code,
       reference,
       amount: Number(order.total),
       currency: "GHS",
-      isSandbox: true,
-      message:
-        "Paystack is in sandbox demo mode (add PAYSTACK_SECRET_KEY in Server/.env for live gateway).",
+      isSandbox: false,
     });
-  } catch (error) {
-    console.error("Payment initialization error:", error);
+  } catch {
+    console.error("Payment initialization failed.");
     res.status(500).json({ message: "Could not initialize payment." });
   }
 });
 
 const verifySchema = z.object({
-  reference: z.string().trim().min(3),
+  reference: z.string().trim().min(3).max(100),
   orderId: z.string().uuid().optional(),
 });
 
+async function fetchVerifiedTransaction(reference: string): Promise<PaystackTransaction> {
+  const response = await fetch(
+    `https://api.paystack.co/transaction/verify/${encodeURIComponent(reference)}`,
+    {
+      headers: { Authorization: `Bearer ${PAYSTACK_SECRET_KEY}` },
+      signal: AbortSignal.timeout(15_000),
+    },
+  );
+  const body: unknown = await response.json().catch(() => undefined);
+  const parsed = paystackTransactionSchema.safeParse(body);
+
+  if (!response.ok || !parsed.success || !parsed.data.status) {
+    throw new PaymentProcessingError(
+      "Paystack could not verify this transaction.",
+      502,
+    );
+  }
+  if (parsed.data.data.reference !== reference) {
+    throw new PaymentProcessingError(
+      "Paystack returned a different transaction reference.",
+      502,
+    );
+  }
+  return parsed.data.data;
+}
+
+async function processVerifiedTransaction(
+  transaction: PaystackTransaction,
+  reference: string,
+  expectedOrderId?: string,
+) {
+  const [matchedOrder] = await db
+    .select()
+    .from(orders)
+    .where(eq(orders.paymentReference, reference))
+    .limit(1);
+
+  if (
+    !matchedOrder ||
+    (expectedOrderId && expectedOrderId !== matchedOrder.id) ||
+    (transaction.metadata?.orderId &&
+      transaction.metadata.orderId !== matchedOrder.id)
+  ) {
+    throw new PaymentProcessingError(
+      "Payment reference does not match an order.",
+      400,
+    );
+  }
+
+  if (!matchesOrderAmountAndCurrency(transaction, matchedOrder.total)) {
+    throw new PaymentProcessingError(
+      "Verified payment amount or currency does not match the order.",
+      400,
+    );
+  }
+
+  if (transaction.status === "success") {
+    return db.transaction(async (tx) => {
+      const [current] = await tx
+        .select()
+        .from(orders)
+        .where(eq(orders.id, matchedOrder.id))
+        .for("update");
+
+      if (!current || current.paymentReference !== reference) {
+        throw new PaymentProcessingError(
+          "Payment reference no longer matches the order.",
+          409,
+        );
+      }
+
+      if (current.paymentStatus === "paid") {
+        return { order: current, newlyPaid: false };
+      }
+      if (current.paymentStatus !== "unpaid" || current.status === "cancelled") {
+        throw new PaymentProcessingError("Order cannot transition to paid.", 409);
+      }
+
+      const reportedPaymentDate = transaction.paid_at
+        ? new Date(transaction.paid_at)
+        : new Date();
+      const paymentDate = Number.isNaN(reportedPaymentDate.getTime())
+        ? new Date()
+        : reportedPaymentDate;
+      const paymentMethod = `paystack (${transaction.channel || "paystack"})`;
+      const [paidOrder] = await tx
+        .update(orders)
+        .set({
+          paymentStatus: "paid",
+          status: current.status === "pending" ? "processing" : current.status,
+          paymentMethod,
+        })
+        .where(eq(orders.id, current.id))
+        .returning();
+
+      await tx
+        .insert(telegramNotifications)
+        .values({
+          eventKey: `successful-payment:${current.id}`,
+          message: successfulPaymentMessage({
+            id: paidOrder.id,
+            fullName: paidOrder.fullName,
+            email: paidOrder.email,
+            total: paidOrder.total,
+            paymentReference: reference,
+            paymentMethod: paidOrder.paymentMethod,
+            paymentStatus: paidOrder.paymentStatus,
+            paymentDate,
+          }),
+        })
+        .onConflictDoNothing({ target: telegramNotifications.eventKey });
+
+      return { order: paidOrder, newlyPaid: true };
+    });
+  }
+
+  if (transaction.status === "failed") {
+    return db.transaction(async (tx) => {
+      const [current] = await tx
+        .select()
+        .from(orders)
+        .where(eq(orders.id, matchedOrder.id))
+        .for("update");
+
+      if (!current || current.paymentReference !== reference) {
+        throw new PaymentProcessingError(
+          "Payment reference no longer matches the order.",
+          409,
+        );
+      }
+
+      if (current.paymentStatus === "unpaid") {
+        await tx
+          .insert(telegramNotifications)
+          .values({
+            eventKey: `failed-payment:${reference}`,
+            message: failedPaymentMessage({
+              id: current.id,
+              fullName: current.fullName,
+              total: current.total,
+              paymentReference: reference,
+            }),
+          })
+          .onConflictDoNothing({ target: telegramNotifications.eventKey });
+      }
+      return { order: current, newlyPaid: false };
+    });
+  }
+
+  throw new PaymentProcessingError(
+    "Paystack has not confirmed a successful or failed payment.",
+    409,
+  );
+}
+
 /**
- * Verify a Paystack payment by transaction reference.
+ * Verify a payment with Paystack before updating its order or notifying Telegram.
  */
 paymentRouter.post("/verify", async (req: Request, res: Response) => {
   const parsed = verifySchema.safeParse(req.body);
@@ -169,161 +369,111 @@ paymentRouter.post("/verify", async (req: Request, res: Response) => {
     res.status(400).json({ message: "Provide a valid payment reference." });
     return;
   }
+  if (!PAYSTACK_SECRET_KEY) {
+    res.status(503).json({ message: "Paystack payment verification is unavailable." });
+    return;
+  }
 
   const { reference, orderId } = parsed.data;
-
   try {
-    let isSuccess = false;
-    let targetOrderId = orderId;
-    let paymentChannel = "paystack";
+    const transaction = await fetchVerifiedTransaction(reference);
+    const result = await processVerifiedTransaction(
+      transaction,
+      reference,
+      orderId,
+    );
 
-    if (PAYSTACK_SECRET_KEY) {
-      const verifyRes = await fetch(
-        `https://api.paystack.co/transaction/verify/${encodeURIComponent(reference)}`,
-        {
-          headers: {
-            Authorization: `Bearer ${PAYSTACK_SECRET_KEY}`,
-          },
-        },
-      );
-
-      const verifyData = await verifyRes.json().catch(() => ({}));
-
-      if (!verifyRes.ok || !verifyData.status) {
-        res.status(400).json({
-          message: verifyData.message || "Could not verify payment with Paystack.",
-        });
-        return;
-      }
-
-      if (verifyData.data.status === "success") {
-        isSuccess = true;
-        targetOrderId = verifyData.data.metadata?.orderId || orderId;
-        paymentChannel = verifyData.data.channel || "paystack";
-      }
-    } else {
-      // Sandbox mode: accept sandbox test confirmation
-      isSuccess = true;
-    }
-
-    if (!isSuccess) {
+    if (transaction.status !== "success") {
       res.status(400).json({
-        message: "Payment was not successful or is still pending.",
+        message: "Paystack confirmed that this payment failed.",
+        paymentStatus: "unpaid",
       });
       return;
-    }
-
-    // Find and update order in database
-    let updatedOrder = null;
-
-    if (targetOrderId) {
-      const [updated] = await db
-        .update(orders)
-        .set({
-          paymentStatus: "paid",
-          status: "processing",
-          paymentReference: reference,
-          paymentMethod: `paystack (${paymentChannel})`,
-        })
-        .where(eq(orders.id, targetOrderId))
-        .returning();
-      updatedOrder = updated;
-    }
-
-    if (!updatedOrder) {
-      // Fallback: look up order by payment reference
-      const [found] = await db
-        .select()
-        .from(orders)
-        .where(eq(orders.paymentReference, reference))
-        .limit(1);
-
-      if (found) {
-        const [updated] = await db
-          .update(orders)
-          .set({
-            paymentStatus: "paid",
-            status: "processing",
-            paymentMethod: `paystack (${paymentChannel})`,
-          })
-          .where(eq(orders.id, found.id))
-          .returning();
-        updatedOrder = updated;
-      }
     }
 
     res.json({
       success: true,
       message: "Payment successfully verified and recorded.",
-      orderId: updatedOrder?.id || targetOrderId,
+      orderId: result.order.id,
       reference,
-      paymentStatus: "paid",
-      total: updatedOrder?.total ? Number(updatedOrder.total) : undefined,
-      customerName: updatedOrder?.fullName,
-      customerEmail: updatedOrder?.email,
-      paymentMethod: updatedOrder?.paymentMethod || `paystack (${paymentChannel})`,
-      createdAt: updatedOrder?.createdAt,
+      paymentStatus: result.order.paymentStatus,
+      total: Number(result.order.total),
+      customerName: result.order.fullName,
+      customerEmail: result.order.email,
+      paymentMethod: result.order.paymentMethod,
+      createdAt: result.order.createdAt,
     });
   } catch (error) {
-    console.error("Payment verification error:", error);
-    res.status(500).json({ message: "Could not complete payment verification." });
+    if (error instanceof PaymentProcessingError) {
+      res.status(error.statusCode).json({ message: error.message });
+      return;
+    }
+    console.error("Payment verification could not be completed.");
+    res.status(500).json({ message: "Could not verify this payment." });
   }
 });
 
 /**
- * Paystack Webhook endpoint to listen for background payment events.
+ * Paystack webhook. The app mounts express.raw before express.json for this path.
  */
 paymentRouter.post("/webhook", async (req: Request, res: Response) => {
-  if (!PAYSTACK_SECRET_KEY) {
-    res.status(200).send("OK");
-    return;
-  }
-
+  const rawBody = Buffer.isBuffer(req.body) ? req.body : undefined;
   const signature = req.headers["x-paystack-signature"];
-  if (typeof signature !== "string") {
-    res.status(401).send("Missing signature");
+  if (!rawBody || typeof signature !== "string") {
+    res.status(401).send("Missing signed webhook body.");
     return;
   }
 
-  const hash = createHmac("sha512", PAYSTACK_SECRET_KEY)
-    .update(JSON.stringify(req.body))
-    .digest("hex");
-
-  if (hash !== signature) {
-    res.status(401).send("Invalid signature");
+  if (!isValidPaystackSignature(rawBody, signature, PAYSTACK_SECRET_KEY)) {
+    res.status(401).send("Invalid signature.");
     return;
   }
 
-  const event = req.body;
+  let eventBody: unknown;
+  try {
+    eventBody = JSON.parse(rawBody.toString("utf8"));
+  } catch {
+    res.status(400).send("Invalid webhook payload.");
+    return;
+  }
 
-  if (event.event === "charge.success") {
-    const reference = event.data.reference;
-    const orderId = event.data.metadata?.orderId;
-    const channel = event.data.channel || "paystack";
+  const parsedEvent = webhookSchema.safeParse(eventBody);
+  if (!parsedEvent.success) {
+    res.status(400).send("Invalid webhook payload.");
+    return;
+  }
 
-    if (orderId) {
-      await db
-        .update(orders)
-        .set({
-          paymentStatus: "paid",
-          status: "processing",
-          paymentReference: reference,
-          paymentMethod: `paystack (${channel})`,
-        })
-        .where(eq(orders.id, orderId));
-    } else if (reference) {
-      await db
-        .update(orders)
-        .set({
-          paymentStatus: "paid",
-          status: "processing",
-          paymentMethod: `paystack (${channel})`,
-        })
-        .where(eq(orders.paymentReference, reference));
+  const { event, data } = parsedEvent.data;
+  if (event !== "charge.success" && event !== "charge.failed") {
+    res.status(200).send("Event ignored.");
+    return;
+  }
+
+  if (!PAYSTACK_SECRET_KEY) {
+    res.status(503).send("Payment verification is unavailable.");
+    return;
+  }
+
+  try {
+    const transaction = await fetchVerifiedTransaction(data.reference);
+    if (
+      (event === "charge.success" && transaction.status !== "success") ||
+      (event === "charge.failed" && transaction.status !== "failed")
+    ) {
+      res.status(400).send("Webhook event does not match Paystack verification.");
+      return;
     }
-  }
 
-  res.status(200).send("Webhook handled");
+    await processVerifiedTransaction(transaction, data.reference);
+    res.status(200).send("Webhook handled.");
+  } catch (error) {
+    if (error instanceof PaymentProcessingError && error.statusCode < 500) {
+      res.status(error.statusCode).send(error.message);
+      return;
+    }
+    console.error("Paystack webhook processing failed.");
+    res.status(500).send("Webhook processing failed.");
+  }
 });
 
 export default paymentRouter;

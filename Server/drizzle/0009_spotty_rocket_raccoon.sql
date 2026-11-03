@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX "orders_payment_reference_unique_idx" ON "orders" USING btree ("payment_reference");
