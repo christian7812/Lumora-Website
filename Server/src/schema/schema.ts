@@ -187,7 +187,7 @@ export const telegramNotifications = pgTable(
     ),
     check(
       "telegram_notifications_status_valid",
-      sql`${table.status} IN ('pending', 'processing', 'sent')`,
+      sql`${table.status} IN ('pending', 'processing', 'sent', 'failed')`,
     ),
   ],
 );

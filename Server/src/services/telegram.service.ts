@@ -2,6 +2,7 @@ import {
   and,
   asc,
   eq,
+  gte,
   lte,
   lt,
   or,
@@ -9,10 +10,11 @@ import {
 import { db } from "../db/db.js";
 import { telegramNotifications } from "../schema/schema.js";
 
-const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN?.trim() ?? "";
-const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID?.trim() ?? "";
 const TELEGRAM_MESSAGE_LIMIT = 4096;
 const RETRY_DELAY_CAP_MS = 60 * 60 * 1000;
+const MAX_DELIVERY_ATTEMPTS = 8;
+const QUEUE_POLL_INTERVAL_MS = 5_000;
+const QUEUE_POLL_BACKOFF_CAP_MS = 5 * 60 * 1000;
 
 interface OrderNotification {
   id: string;
@@ -23,6 +25,13 @@ interface OrderNotification {
   paymentStatus: string;
   paymentMethod: string;
   createdAt: Date;
+}
+
+function getTelegramCredentials() {
+  return {
+    botToken: process.env.TELEGRAM_BOT_TOKEN?.trim() ?? "",
+    chatId: process.env.TELEGRAM_CHAT_ID?.trim() ?? "",
+  };
 }
 
 interface OrderNotificationItem {
@@ -136,13 +145,58 @@ export function failedPaymentMessage(
 }
 
 let drainIsRunning = false;
+let workerIsRunning = false;
 let missingConfigurationWasLogged = false;
+let queuePollDelayMs = QUEUE_POLL_INTERVAL_MS;
 
 class TelegramDeliveryError extends Error {
-  constructor(message = "Telegram request failed.") {
-    super(message);
+  constructor(
+    message = "Telegram request failed.",
+    options?: ErrorOptions,
+  ) {
+    super(message, options);
     this.name = "TelegramDeliveryError";
   }
+}
+
+function redactSecrets(value: string): string {
+  return value
+    .replace(/\b\d{5,}:[A-Za-z0-9_-]{20,}\b/g, "[REDACTED_BOT_TOKEN]")
+    .replace(/(bot)[^/\s]+(?=\/sendMessage)/gi, "$1[REDACTED]")
+    .replace(/\bpostgres(?:ql)?:\/\/[^@\s]+@/gi, "postgresql://[REDACTED]@");
+}
+
+interface SerializedQueueError {
+  name: string;
+  code?: string;
+  message: string;
+  stack?: string;
+  cause?: SerializedQueueError;
+}
+
+export function serializeQueueError(
+  error: unknown,
+  depth = 0,
+): SerializedQueueError {
+  if (!(error instanceof Error)) {
+    return {
+      name: "NonErrorThrow",
+      message: redactSecrets(String(error)),
+    };
+  }
+
+  const code =
+    "code" in error && typeof error.code === "string" ? error.code : undefined;
+
+  return {
+    name: error.name,
+    ...(code ? { code } : {}),
+    message: redactSecrets(error.message),
+    ...(error.stack ? { stack: redactSecrets(error.stack) } : {}),
+    ...(depth < 2 && error.cause !== undefined
+      ? { cause: serializeQueueError(error.cause, depth + 1) }
+      : {}),
+  };
 }
 
 export async function sendTelegramMessage(
@@ -174,7 +228,7 @@ export async function sendTelegramMessage(
     }
   } catch (error) {
     if (error instanceof TelegramDeliveryError) throw error;
-    throw new TelegramDeliveryError();
+    throw new TelegramDeliveryError("Telegram request failed.", { cause: error });
   }
 }
 
@@ -183,6 +237,20 @@ async function claimNextNotification() {
   const staleLock = new Date(now.getTime() - 2 * 60 * 1000);
 
   return db.transaction(async (tx) => {
+    await tx
+      .update(telegramNotifications)
+      .set({
+        status: "failed",
+        lockedAt: null,
+        lastError: "Maximum delivery attempts exceeded.",
+      })
+      .where(
+        and(
+          eq(telegramNotifications.status, "pending"),
+          gte(telegramNotifications.attempts, MAX_DELIVERY_ATTEMPTS),
+        ),
+      );
+
     const [notification] = await tx
       .select()
       .from(telegramNotifications)
@@ -204,6 +272,18 @@ async function claimNextNotification() {
 
     if (!notification) return null;
 
+    if (notification.attempts >= MAX_DELIVERY_ATTEMPTS) {
+      await tx
+        .update(telegramNotifications)
+        .set({
+          status: "failed",
+          lockedAt: null,
+          lastError: "Worker lease expired after maximum delivery attempts.",
+        })
+        .where(eq(telegramNotifications.id, notification.id));
+      return null;
+    }
+
     const [claimed] = await tx
       .update(telegramNotifications)
       .set({
@@ -222,26 +302,18 @@ async function deliverNotification(
   notification: NonNullable<Awaited<ReturnType<typeof claimNextNotification>>>,
 ): Promise<void> {
   try {
+    const { botToken, chatId } = getTelegramCredentials();
     await sendTelegramMessage(
       notification.message,
-      TELEGRAM_BOT_TOKEN,
-      TELEGRAM_CHAT_ID,
+      botToken,
+      chatId,
     );
-
-    await db
-      .update(telegramNotifications)
-      .set({
-        status: "sent",
-        lockedAt: null,
-        processedAt: new Date(),
-        lastError: null,
-      })
-      .where(eq(telegramNotifications.id, notification.id));
   } catch (error) {
     const retryDelay = Math.min(
-      15_000 * 2 ** Math.min(notification.attempts - 1, 8),
+      30_000 * 2 ** Math.min(notification.attempts - 1, 6),
       RETRY_DELAY_CAP_MS,
     );
+    const permanentlyFailed = notification.attempts >= MAX_DELIVERY_ATTEMPTS;
     const safeError =
       error instanceof TelegramDeliveryError &&
       error.message.startsWith("Telegram API returned")
@@ -251,26 +323,50 @@ async function deliverNotification(
     await db
       .update(telegramNotifications)
       .set({
-        status: "pending",
+        status: permanentlyFailed ? "failed" : "pending",
         lockedAt: null,
-        nextAttemptAt: new Date(Date.now() + retryDelay),
+        ...(permanentlyFailed
+          ? {}
+          : { nextAttemptAt: new Date(Date.now() + retryDelay) }),
         lastError: safeError,
       })
       .where(eq(telegramNotifications.id, notification.id));
-    console.warn("Telegram notification delivery failed; it will be retried.");
+    console.warn(
+      JSON.stringify({
+        event: "telegram_delivery_failed",
+        notificationId: notification.id,
+        attempt: notification.attempts,
+        maxAttempts: MAX_DELIVERY_ATTEMPTS,
+        retryInMs: permanentlyFailed ? null : retryDelay,
+        terminal: permanentlyFailed,
+        error: serializeQueueError(error),
+      }),
+    );
+    return;
   }
+
+  await db
+    .update(telegramNotifications)
+    .set({
+      status: "sent",
+      lockedAt: null,
+      processedAt: new Date(),
+      lastError: null,
+    })
+    .where(eq(telegramNotifications.id, notification.id));
 }
 
-async function drainTelegramNotifications(): Promise<void> {
-  if (drainIsRunning) return;
-  if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_ID) {
+async function drainTelegramNotifications(): Promise<boolean> {
+  if (drainIsRunning) return true;
+  const { botToken, chatId } = getTelegramCredentials();
+  if (!botToken || !chatId) {
     if (!missingConfigurationWasLogged) {
       console.warn(
         "Telegram notifications are queued but not sent; TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID must be configured.",
       );
       missingConfigurationWasLogged = true;
     }
-    return;
+    return true;
   }
 
   drainIsRunning = true;
@@ -280,15 +376,39 @@ async function drainTelegramNotifications(): Promise<void> {
       if (!notification) break;
       await deliverNotification(notification);
     }
-  } catch {
-    console.error("Could not process the Telegram notification queue.");
+  } catch (error) {
+    console.error(
+      JSON.stringify({
+        event: "telegram_queue_processing_failed",
+        phase: "database_queue_claim_or_acknowledgement",
+        error: serializeQueueError(error),
+      }),
+    );
+    return false;
   } finally {
     drainIsRunning = false;
   }
+  return true;
 }
 
 export function startTelegramNotificationWorker(): void {
-  void drainTelegramNotifications();
-  const timer = setInterval(() => void drainTelegramNotifications(), 5_000);
-  timer.unref();
+  if (workerIsRunning) return;
+  workerIsRunning = true;
+
+  const poll = async () => {
+    const succeeded = await drainTelegramNotifications();
+    if (succeeded) {
+      queuePollDelayMs = QUEUE_POLL_INTERVAL_MS;
+    } else {
+      queuePollDelayMs = Math.min(
+        queuePollDelayMs * 2,
+        QUEUE_POLL_BACKOFF_CAP_MS,
+      );
+    }
+
+    const timer = setTimeout(poll, queuePollDelayMs);
+    timer.unref();
+  };
+
+  void poll();
 }

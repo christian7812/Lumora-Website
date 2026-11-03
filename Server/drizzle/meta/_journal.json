@@ -71,6 +71,13 @@
       "when": 1793700930574,
       "tag": "0009_spotty_rocket_raccoon",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1793702861360,
+      "tag": "0010_warm_ender_wiggin",
+      "breakpoints": true
     }
   ]
 }

@@ -1,0 +1,2 @@
+ALTER TABLE "telegram_notifications" DROP CONSTRAINT "telegram_notifications_status_valid";--> statement-breakpoint
+ALTER TABLE "telegram_notifications" ADD CONSTRAINT "telegram_notifications_status_valid" CHECK ("telegram_notifications"."status" IN ('pending', 'processing', 'sent', 'failed'));

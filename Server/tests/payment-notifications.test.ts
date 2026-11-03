@@ -12,6 +12,7 @@ const {
   failedPaymentMessage,
   newOrderMessage,
   sendTelegramMessage,
+  serializeQueueError,
   successfulPaymentMessage,
 } = await import("../src/services/telegram.service.js");
 
@@ -135,4 +136,19 @@ test("Telegram API failure is reported without exposing request credentials", as
       error.message.includes("HTTP 500") &&
       !error.message.includes("token-must-not-leak"),
   );
+});
+
+test("queue error serialization preserves SQLSTATE and redacts bot tokens", () => {
+  const error = Object.assign(
+    new Error(
+      'request to https://api.telegram.org/bot123456:ABCDEFGHIJKLMNOPQRSTUVWXYZ012345/sendMessage failed',
+    ),
+    { code: "42P01" },
+  );
+  const serialized = serializeQueueError(error);
+
+  assert.equal(serialized.name, "Error");
+  assert.equal(serialized.code, "42P01");
+  assert.match(serialized.message, /REDACTED/);
+  assert.doesNotMatch(serialized.message, /ABCDEFGHIJKLMNOPQRSTUVWXYZ/);
 });
