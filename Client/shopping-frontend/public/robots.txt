@@ -1,0 +1,9 @@
+User-agent: *
+Allow: /
+Disallow: /account/
+Disallow: /cart
+Disallow: /checkout
+Disallow: /favorites
+Disallow: /order-success
+
+Sitemap: https://lumoraclient.vercel.app/sitemap.xml
